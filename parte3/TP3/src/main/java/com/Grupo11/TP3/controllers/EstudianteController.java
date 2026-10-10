@@ -11,4 +11,25 @@ public class EstudianteController
 {
     @Autowired
     private EstudianteService estudianteServicio;
+
+    //Inciso 2.a
+    @PostMapping("")
+    public ResponseEntity<?> save(@RequestBody Estudiante estudiante){
+        try{
+            return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.save(estudiante))
+        } catch (Exceptio e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Error: No se pudo cargar al estudiante.");
+
+        }
+    }
+
+    //inciso 2.d
+    @GetMapping("/estudiantes/{lu}")
+    public ResponseEntity<?> getEstudianteByLU(@PathVariable int libretaUnica){
+        try{
+            return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.buscarEstudiantePorLU(libretaUnica));
+        }catch(Exception e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{Error: intente de nuevo ");
+        }
+    }
 }
