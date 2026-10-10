@@ -1,6 +1,8 @@
 package com.Grupo11.TP3.services;
 
 
+import com.Grupo11.TP3.models.Estudiante;
+
 @Service("EstudianteServicio")
 public class EstudianteService implements BaseService<Estudiante>{
 
@@ -20,14 +22,13 @@ public class EstudianteService implements BaseService<Estudiante>{
     }
 
     //Inciso 2.d
-    @Trasactional
-    public Estudiante buscarEstudiantePorLU(int lu){
-        var est = estudianteRepository.getEstudianteByLU(lu);
-            try{
-                return est;
+    @Transactional
+    public Estudiante buscarEstudiantePorLU(int lu) throws Exception{
+        try{
+            return estudianteRepository.getEstudianteByLU(lu);
         }catch(Exception e){
-                throw new Exception(e.getMessagge());
-            }
+            throw new Exception(e.getMessage());
+        }
     }
 
 }

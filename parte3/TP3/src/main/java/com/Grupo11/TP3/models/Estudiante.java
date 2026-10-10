@@ -4,8 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.OneToMany;
-
-import org.springframework.data.annotation.Id;
+import jakarta.persistence.Id;
 
 import java.time.LocalDate;
 import java.time.Period;
@@ -15,7 +14,7 @@ import java.util.List;
 @Entity
 public class Estudiante {
     @Id
-    private Integer dni;
+    private Long dni;
     @Column(nullable = false)
     private String nombre;
     @Column(nullable = false)

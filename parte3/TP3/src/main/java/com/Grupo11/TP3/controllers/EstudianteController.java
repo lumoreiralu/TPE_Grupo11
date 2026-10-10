@@ -16,16 +16,16 @@ public class EstudianteController
     @PostMapping("")
     public ResponseEntity<?> save(@RequestBody Estudiante estudiante){
         try{
-            return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.save(estudiante))
-        } catch (Exceptio e) {
+            return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.save(estudiante));
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Error: No se pudo cargar al estudiante.");
 
         }
     }
 
     //inciso 2.d
-    @GetMapping("/estudiantes/{lu}")
-    public ResponseEntity<?> getEstudianteByLU(@PathVariable int libretaUnica){
+    @GetMapping("/{lu}")
+    public ResponseEntity<?> getEstudianteByLU(int lu){
         try{
             return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.buscarEstudiantePorLU(libretaUnica));
         }catch(Exception e){

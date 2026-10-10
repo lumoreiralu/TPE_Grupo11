@@ -5,7 +5,7 @@ package com.Grupo11.TP3.repository;
  * @param <ID> Identificador único de la entidad que manipula
 */
 
-import org.hibernate.internal.util.Optional;
+import java.util.Optional;
 import org.springframework.data.repository.NoRepositoryBean;
 
 import java.io.Serializable;
