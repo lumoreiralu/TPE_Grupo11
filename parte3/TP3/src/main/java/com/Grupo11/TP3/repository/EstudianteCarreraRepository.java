@@ -8,6 +8,6 @@ import org.springframework.stereotype.Repository;
 import springboot.app.modelos.EstudianteCarrera;
 
 @Repository("EstudianteCarreraRepositorio")
-public interface EstudianteCarreraRepository extends RepoBase<EstudianteCarrera, Integer> {
+public interface EstudianteCarreraRepository extends RepoBase<EstudianteCarrera, EstudianteCarreraPK> {
 
 }
