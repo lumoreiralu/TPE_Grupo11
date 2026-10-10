@@ -11,5 +11,12 @@ public class EstudianteCarreraController {
     @Autowired
     private EstudianteCarreraService estudianteCarreraServicio;
 
-
+    @PostMapping("")
+    public ResponseEntity<?> save(@RequestBody EstudianteCarrera entity){
+        try{
+            return ResponseEntity.status(HttpStatus.OK).body(estudianteCarreraServicio.save(entity));
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"error\":\"Error. No se pudo ingresar, revise los campos e intente nuevamente.\"}");
+        }
+    }
 }
