@@ -45,7 +45,7 @@ public class CargaDeDatos {
              CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             for (CSVRecord csvRecord : csvParser) {
                 Carrera carrera = new Carrera();
-                carrera.setId(Integer.parseInt(csvRecord.get("id_carrera")));
+                carrera.setId(Long.parseLong(csvRecord.get("id_carrera")));
                 carrera.setNombre(csvRecord.get("carrera"));
                 // Si tu entidad tiene duración, podés descomentar la siguiente línea:
                 // carrera.setDuracion(Integer.parseInt(csvRecord.get("duracion")));
@@ -62,7 +62,7 @@ public class CargaDeDatos {
             for (CSVRecord csvRecord : csvParser) {
                 Estudiante e = new Estudiante();
                 // Ojo: Asegurate de que el campo clave en tu entidad Estudiante sea el DNI o el ID correspondiente
-                e.setDni(Integer.parseInt(csvRecord.get("DNI")));
+                e.setDni(Long.parseLong(csvRecord.get("DNI")));
                 e.setNombre(csvRecord.get("nombre"));
                 e.setApellido(csvRecord.get("apellido"));
                 e.setEdad(Integer.parseInt(csvRecord.get("edad")));
@@ -81,7 +81,7 @@ public class CargaDeDatos {
              CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             for (CSVRecord csvRecord : csvParser) {
                 // En tu CSV de matriculaciones, id_estudiante es en realidad el DNI
-                int dniEstudiante = Integer.parseInt(csvRecord.get("id_estudiante"));
+                int dniEstudiante = Long.parseLong(csvRecord.get("id_estudiante"));
                 int idCarrera = Integer.parseInt(csvRecord.get("id_carrera"));
                 int inscripcion = Integer.parseInt(csvRecord.get("inscripcion"));
                 int graduacion = Integer.parseInt(csvRecord.get("graduacion"));

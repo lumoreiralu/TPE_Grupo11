@@ -1,4 +1,5 @@
-package universidad.dto;
+package com.Grupo11.TP3.dto;
+
 public class CarreraInscriptosDTO {
     private int id;
     private String nombre;

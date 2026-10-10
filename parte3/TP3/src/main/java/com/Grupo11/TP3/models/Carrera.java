@@ -13,7 +13,7 @@ import java.util.List;
 @Entity
 public class Carrera {
     @Id
-    private Integer id;
+    private Long id;
     @Column(nullable = false, unique = true)
     private String nombre;
     @Column(nullable = false)
@@ -23,17 +23,17 @@ public class Carrera {
     public Carrera() {
     }
 
-    public Carrera(Integer id, String nombre, int duracion) {
+    public Carrera(Long id, String nombre, int duracion) {
         this.id = id;
         this.nombre = nombre;
         this.duracion = duracion;
         this.estudiantes = new ArrayList<>();
     }
 
-    public Integer getId() {
+    public Long getId() {
         return id;
     }
-    public void setId(Integer id) {this.id = id; }
+    public void setId(Long id) {this.id = id; }
 
     public String getNombre() {
         return nombre;

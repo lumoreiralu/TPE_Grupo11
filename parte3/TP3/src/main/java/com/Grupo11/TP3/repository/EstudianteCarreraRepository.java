@@ -1,5 +1,6 @@
 package com.Grupo11.TP3.repository;
 import com.Grupo11.TP3.models.EstudianteCarrera;
+import com.Grupo11.TP3.models.EstudianteCarreraPK;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

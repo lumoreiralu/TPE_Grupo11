@@ -1,16 +1,16 @@
-package universidad.dto;
+package com.Grupo11.TP3.dto;
 
 public class CarreraDTO {
-    private int id;
+    private Long id;
     private String nombre;
 
 
-    public CarreraDTO(int id, String nombre) {
+    public CarreraDTO(Long id, String nombre) {
         this.id = id;
         this.nombre = nombre;
     }
 
-    public int getId() {
+    public Long getId() {
         return id;
     }
 

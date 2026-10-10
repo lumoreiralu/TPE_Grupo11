@@ -1,4 +1,4 @@
-package universidad.dto;
+package com.Grupo11.TP3.dto;
 
 public class ReporteCarreraDTO {
     private String nombreCarrera;

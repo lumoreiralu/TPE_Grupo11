@@ -1,6 +1,9 @@
 package com.Grupo11.TP3.repository;
 
+import com.Grupo11.TP3.models.Estudiante;
 import com.Grupo11.TP3.models.EstudianteCarrera;
+import com.mysql.cj.Query;
+import org.springframework.stereotype.Repository;
 
 
 @Repository("EstudianteRepositorio")

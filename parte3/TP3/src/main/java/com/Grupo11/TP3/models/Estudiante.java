@@ -33,7 +33,7 @@ public class Estudiante {
     public Estudiante() {
     }
 
-    public Estudiante(Integer dni, String nombre, String apellido, int edad, String genero, String ciudadResidencia, int libretaUnica) {
+    public Estudiante(Long dni, String nombre, String apellido, int edad, String genero, String ciudadResidencia, int libretaUnica) {
         this.dni = dni;
         this.nombre = nombre;
         this.edad = edad; // para leer los csv que ya tiene la edad establecida
@@ -44,7 +44,7 @@ public class Estudiante {
         this.carreras = new ArrayList<>();
     }
 
-    public Estudiante(Integer dni, String nombre, String apellido, String genero, String ciudadResidencia, int libretaUnica, LocalDate fechaNacimiento) {
+    public Estudiante(Long dni, String nombre, String apellido, String genero, String ciudadResidencia, int libretaUnica, LocalDate fechaNacimiento) {
         this.dni = dni;
         this.nombre = nombre;
         this.apellido = apellido;
@@ -56,7 +56,7 @@ public class Estudiante {
 
     }
 
-    public Integer getDni() {
+    public Long getDni() {
         return dni;
     }
 

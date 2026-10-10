@@ -1,10 +1,11 @@
 package com.Grupo11.TP3.services;
 
 
+import com.Grupo11.TP3.models.Carrera;
 import com.Grupo11.TP3.repository.CarreraRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import universidad.entity.Carrera;
+
 
 import java.util.List;
 

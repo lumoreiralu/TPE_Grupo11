@@ -29,7 +29,7 @@ public class EstudianteCarrera {
         this.estudiante = estudiante;
         this.inscripcion = inscripcion;
         this.graduacion = graduacion;
-        this.id = new EstudianteCarreraPK(estudiante.getDni(), carrera.getId());
+        this.id = new EstudianteCarreraPK(Math.toIntExact(estudiante.getDni()), carrera.getId());
     }
 
     public EstudianteCarrera(Carrera carrera, Estudiante estudiante, Integer graduacion) {
@@ -37,7 +37,7 @@ public class EstudianteCarrera {
         this.estudiante = estudiante;
         this.inscripcion = LocalDate.now().getYear();
         this.graduacion =graduacion;
-        this.id=new EstudianteCarreraPK(estudiante.getDni(), carrera.getId()) ;
+        this.id=new EstudianteCarreraPK(Math.toIntExact(estudiante.getDni()), carrera.getId()) ;
     }
 
     public Carrera getCarrera() {
