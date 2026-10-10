@@ -30,20 +30,20 @@ public interface RepoBase <T, ID extends Serializable> extends org.springframewo
      * @param id Identificador único de la entidad.
      * @return Entidad que coicide con el id ingresado.
      */
-    Optional<T> findById(Long id);
+    Optional<T> findById(ID id);
 
     /**
      * Indica si existe la entidad con el id ingresado por parámetro.
      * @param id Identificador único de la entidad.
      * @return True en caso de existir, caso contraio, false.
      */
-    boolean existsById(Long id);
+    boolean existsById(ID id);
 
     /**
      * Elimina una entidad correspondiente al id ingresado por parámetro.
      * @param id Identificador único de la entidad.
      */
-    void deleteById(Long id);
+    void deleteById(ID id);
 
     /**
      * Persiste una entidad ingresada por parámetro.

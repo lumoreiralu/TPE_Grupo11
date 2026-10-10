@@ -6,12 +6,12 @@ import java.util.Objects;
 
 @Embeddable
 public class EstudianteCarreraPK implements Serializable {
-    private Integer idEstudiante;
-    private Integer idCarrera;
+    private Long idEstudiante;
+    private Long idCarrera;
 
     public EstudianteCarreraPK() {}
 
-    public EstudianteCarreraPK(Integer idEstudiante, Integer idCarrera) {
+    public EstudianteCarreraPK(Long idEstudiante, Long idCarrera) {
         this.idEstudiante = idEstudiante;
         this.idCarrera = idCarrera;
     }
@@ -31,11 +31,11 @@ public class EstudianteCarreraPK implements Serializable {
         return Objects.hash(idEstudiante, idCarrera);
     }
 
-    public Integer getIdEstudiante() {
+    public Long getIdEstudiante() {
         return idEstudiante;
     }
 
-    public Integer getIdCarrera() {
+    public Long getIdCarrera() {
         return idCarrera;
     }
 }

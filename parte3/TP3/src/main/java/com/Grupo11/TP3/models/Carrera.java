@@ -4,7 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.OneToMany;
-import org.springframework.data.annotation.Id;
+import jakarta.persistence.Id;
 
 
 import java.util.ArrayList;

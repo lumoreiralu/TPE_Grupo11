@@ -69,6 +69,21 @@ public class Estudiante {
         return apellido;
     }
 
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public void setDni(Long dni) {
+        this.dni = dni;
+    }
+
+    public void setApellido(String apellido) {
+        this.apellido = apellido;
+    }
+
+    public void setEdad(Integer edad) {
+        this.edad = edad;
+    }
 
     public int getEdad() {
         return edad;

@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ResourceUtils;
 
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -68,7 +69,7 @@ public class CargaDeDatos {
                 e.setEdad(Integer.parseInt(csvRecord.get("edad")));
                 e.setGenero(csvRecord.get("genero"));
                 e.setCiudadResidencia(csvRecord.get("ciudad"));
-                e.setNumLibretaUni(Integer.parseInt(csvRecord.get("LU")));
+                e.setLibretaUnica(Integer.parseInt(csvRecord.get("LU")));
 
                 estudianteRepository.save(e);
             }
@@ -81,8 +82,8 @@ public class CargaDeDatos {
              CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             for (CSVRecord csvRecord : csvParser) {
                 // En tu CSV de matriculaciones, id_estudiante es en realidad el DNI
-                int dniEstudiante = Long.parseLong(csvRecord.get("id_estudiante"));
-                int idCarrera = Integer.parseInt(csvRecord.get("id_carrera"));
+                Long dniEstudiante = Long.parseLong(csvRecord.get("id_estudiante"));
+                Integer idCarrera = Integer.parseInt(csvRecord.get("id_carrera"));
                 int inscripcion = Integer.parseInt(csvRecord.get("inscripcion"));
                 int graduacion = Integer.parseInt(csvRecord.get("graduacion"));
 

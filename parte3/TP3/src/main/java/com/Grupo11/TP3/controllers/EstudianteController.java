@@ -31,7 +31,7 @@ public class EstudianteController
     @GetMapping("/{lu}")
     public ResponseEntity<?> getEstudianteByLU(int lu){
         try{
-            return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.buscarEstudiantePorLU(libretaUnica));
+            return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.buscarEstudiantePorLU(lu));
         }catch(Exception e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{Error: intente de nuevo ");
         }

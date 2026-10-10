@@ -2,12 +2,17 @@ package com.Grupo11.TP3.services;
 import com.Grupo11.TP3.models.EstudianteCarrera;
 import com.Grupo11.TP3.repository.EstudianteCarreraRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 
 import java.util.List;
 
-
+@Service("EstudianteCarreraService")
 public class EstudianteCarreraService implements BaseService<EstudianteCarrera> {
+
+    @Autowired // <--- 2. Inyectamos la instancia del repositorio
+    private EstudianteCarreraRepository estudianteCarreraRepository;
 
     @Override
     public List<EstudianteCarrera> findAll() throws Exception {
@@ -24,7 +29,7 @@ public class EstudianteCarreraService implements BaseService<EstudianteCarrera> 
     @Transactional
     public EstudianteCarrera save(EstudianteCarrera entity) throws Exception {
         try{
-            return EstudianteCarreraRepository.save(entity);
+            return estudianteCarreraRepository.save(entity);
         }catch (Exception e){
             throw new Exception(e.getMessage());
         }
