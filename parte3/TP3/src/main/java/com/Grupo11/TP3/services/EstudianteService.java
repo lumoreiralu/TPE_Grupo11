@@ -58,9 +58,13 @@ public class EstudianteService implements BaseService<Estudiante>{
     }
 
     // Inciso 2.c
-    @Transactional
-    public List<Estudiante> getEstudiantesOrdenadosPorApellido() {
-        return estudianteRepository.findAllByOrderByApellidoAsc();
+    @Transactional(readOnly = true)
+    public List<Estudiante> getEstudiantesOrdenadosPorApellido() throws Exception {
+        try {
+            return estudianteRepository.findAllByOrderByApellidoAsc();
+        } catch (Exception e) {
+            throw new Exception(e.getMessage());
+        }
     }
 
 }
