@@ -2,6 +2,7 @@ package com.Grupo11.TP3.services;
 
 
 import com.Grupo11.TP3.models.Estudiante;
+import com.Grupo11.TP3.repository.EstudianteRepository;
 
 @Service("EstudianteServicio")
 public class EstudianteService implements BaseService<Estudiante>{

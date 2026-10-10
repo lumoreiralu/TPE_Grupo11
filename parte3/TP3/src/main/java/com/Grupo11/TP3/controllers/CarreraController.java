@@ -12,5 +12,5 @@ public class CarreraController {
     @Autowired
     private CarreraService carreraServicio;
 
-    @GetMapping("")
+
 }
