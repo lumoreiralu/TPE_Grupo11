@@ -32,4 +32,10 @@ public class EstudianteService implements BaseService<Estudiante>{
         }
     }
 
+    // Inciso 2.c
+    @Transactional(readOnly = true)
+    public List<Estudiante> getEstudiantesOrdenadosPorApellido() {
+        return estudianteRepository.findAllByOrderByApellidoAsc();
+    }
+
 }

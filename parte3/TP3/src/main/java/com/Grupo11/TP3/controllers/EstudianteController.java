@@ -32,4 +32,17 @@ public class EstudianteController
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{Error: intente de nuevo ");
         }
     }
+
+    // Inciso 2.c
+    @GetMapping("/ordenados-por-apellido")
+    public ResponseEntity<?> getEstudiantesOrdenados() {
+        try {
+            List<Estudiante> estudiantes = estudianteServicio.getEstudiantesOrdenadosPorApellido();
+            return ResponseEntity.status(HttpStatus.OK).body(estudiantes);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\": \"Error al obtener la lista de estudiantes.\"}");
+        }
+    }
+
+
 }
