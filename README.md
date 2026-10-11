@@ -43,19 +43,19 @@ El sistema expone las siguientes operaciones implementadas según los requerimie
 A continuación se muestran ejemplos de las respuestas obtenidas al probar los servicios mediante Postman:
 
 ### 1. Dar de alta un estudiante (`POST /estudiantes`)
-> 
+> ![Dar de alta un estudiante] (images-postman/POST_estudiantes.png)
 > 
 > 
 
 ### 2. Buscar estudiante por Libreta Universitaria (`GET /estudiantes/{lu}`)
-> 
-> 
+> ![Buscar por LU] (images-postman/GET_estudiantes:{lu})
+>
 > 
 
 ### 3. Listar estudiantes ordenados por apellido (`GET /estudiantes/ordenados-por-apellido`)
+> ![Estudiantes Ordenados] (images-postman/GET:estudiantes:ordenados-por-apellido)
 > 
 > 
-> ![Estudiantes Ordenados]
 
 
 
@@ -63,15 +63,16 @@ A continuación se muestran ejemplos de las respuestas obtenidas al probar los s
 
 ## ⚙️ Cómo ejecutar el proyecto
 
-1. Clonar el repositorio:
-   ```bash
+### 1. Clonar el repositorio:
    git clone <url-del-repositorio>
-2. Configurar las credenciales de tu base de datos en el archivo:
+ 
+### 2. Configurar las credenciales de tu base de datos en el archivo:
    src/main/resources/application.properties:
    spring.datasource.url=jdbc:mysql://localhost:3306/db_estudiantes
-  spring.datasource.username='root'
-  spring.datasource.password=''
-  spring.jpa.hibernate.ddl-auto=update
-3. Ejecutar la aplicación desde tu entorno de desarrollo (IntelliJ IDEA, Eclipse, VS Code) o mediante Maven:
+   spring.datasource.username='root'
+   spring.datasource.password=''
+   spring.jpa.hibernate.ddl-auto=update
+
+### 3. Ejecutar la aplicación desde tu entorno de desarrollo (IntelliJ IDEA, Eclipse, VS Code) o mediante Maven:
    mvn spring-boot:run
    
