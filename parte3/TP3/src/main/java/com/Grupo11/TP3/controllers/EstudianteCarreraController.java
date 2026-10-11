@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/estudiantesecarreras")
+@RequestMapping("/estudiantesCarreras")
 public class EstudianteCarreraController {
     @Autowired
     private EstudianteCarreraService estudianteCarreraServicio;
