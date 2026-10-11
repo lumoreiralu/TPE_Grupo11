@@ -17,7 +17,11 @@ public class EstudianteService implements BaseService<Estudiante>{
 
     @Override
     public List<Estudiante> findAll() throws Exception {
-        return List.of();
+        try {
+            return estudianteRepository.findAll();
+        } catch (Exception e) {
+            throw new Exception("Error al buscar los estudiantes: " + e.getMessage());
+        }
     }
 
     @Override

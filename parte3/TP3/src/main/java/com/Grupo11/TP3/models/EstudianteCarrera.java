@@ -1,5 +1,6 @@
 package com.Grupo11.TP3.models;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 
 import java.time.LocalDate;
@@ -12,9 +13,11 @@ public class EstudianteCarrera {
     @ManyToOne
     @MapsId("idCarrera")
     @JoinColumn(name = "id_carrera")
+    @JsonBackReference(value = "carrera-estudiante")
     private Carrera carrera;
     @ManyToOne @MapsId("idEstudiante")
     @JoinColumn(name = "id_estudiante")
+    @JsonBackReference(value = "estudiante-carrera")
     private Estudiante estudiante;
     @Column(nullable = false)
     private int inscripcion;

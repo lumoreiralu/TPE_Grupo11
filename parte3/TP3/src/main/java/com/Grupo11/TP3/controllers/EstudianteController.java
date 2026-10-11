@@ -16,6 +16,17 @@ public class EstudianteController
     @Autowired
     private EstudianteService estudianteServicio;
 
+    // Inciso para ver todos los estudiantes
+    @GetMapping("")
+    public ResponseEntity<?> getAllEstudiantes() {
+        try {
+            List<Estudiante> estudiantes = estudianteServicio.findAll();
+            return ResponseEntity.status(HttpStatus.OK).body(estudiantes);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\": \"Error al obtener la lista de estudiantes.\"}");
+        }
+    }
+
     //Inciso 2.a
     @PostMapping("")
     public ResponseEntity<?> save(@RequestBody Estudiante estudiante){
@@ -29,7 +40,7 @@ public class EstudianteController
 
     //inciso 2.d
     @GetMapping("/{lu}")
-    public ResponseEntity<?> getEstudianteByLU(int lu){
+    public ResponseEntity<?> getEstudianteByLU(@PathVariable int lu){
         try{
             return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.buscarEstudiantePorLU(lu));
         }catch(Exception e){

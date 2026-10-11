@@ -1,5 +1,6 @@
 package com.Grupo11.TP3.models;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -18,6 +19,7 @@ public class Carrera {
     private String nombre;
     @Column(nullable = false)
     private int duracion;
+    @JsonManagedReference(value = "carrera-estudiante")
     @OneToMany(mappedBy = "carrera", fetch = FetchType.LAZY)
     private List<EstudianteCarrera> estudiantes;
     public Carrera() {
