@@ -82,7 +82,7 @@ public class CargaDeDatos {
              CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             for (CSVRecord csvRecord : csvParser) {
                 // En tu CSV de matriculaciones, id_estudiante es en realidad el DNI
-                Long dniEstudiante = Long.parseLong(csvRecord.get("id_estudiante"));
+                Integer dniEstudiante = Integer.parseInt(csvRecord.get("id_estudiante"));
                 Integer idCarrera = Integer.parseInt(csvRecord.get("id_carrera"));
                 int inscripcion = Integer.parseInt(csvRecord.get("inscripcion"));
                 int graduacion = Integer.parseInt(csvRecord.get("graduacion"));
