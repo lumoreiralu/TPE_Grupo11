@@ -7,9 +7,8 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-
 @Repository("EstudianteRepositorio")
-public interface EstudianteRepository extends RepoBase<Estudiante, Integer> {
+public interface EstudianteRepository extends RepoBase<Estudiante, Long> {
 
     // Inciso 2.c Método para obtener estudiantes ordenados por apellido ascendentemente
     List<Estudiante> findAllByOrderByApellidoAsc();
@@ -17,4 +16,8 @@ public interface EstudianteRepository extends RepoBase<Estudiante, Integer> {
     //Inciso 2.d
     @Query("SELECT e FROM Estudiante e WHERE e.libretaUnica = :lu")
     Estudiante getEstudianteByLU(@Param("lu") int lu);
+
+    //inciso 2.e
+    @Query("SELECT e FROM Estudiante e WHERE e.genero = :genero")
+    List<Estudiante> findByGenero(@Param("genero") String genero);
 }

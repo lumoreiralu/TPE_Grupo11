@@ -71,4 +71,13 @@ public class EstudianteService implements BaseService<Estudiante>{
         }
     }
 
+    // Inciso 2.e
+    @Transactional
+    public List<Estudiante> getEstudiantesPorGenero(String genero) throws Exception {
+        try {
+            return estudianteRepository.findByGenero(genero);
+        } catch (Exception e) {
+            throw new Exception(e.getMessage());
+        }
+    }
 }

@@ -48,8 +48,7 @@ public class CargaDeDatos {
                 Carrera carrera = new Carrera();
                 carrera.setId(Long.parseLong(csvRecord.get("id_carrera")));
                 carrera.setNombre(csvRecord.get("carrera"));
-                // Si tu entidad tiene duración, podés descomentar la siguiente línea:
-                // carrera.setDuracion(Integer.parseInt(csvRecord.get("duracion")));
+                carrera.setDuracion(Integer.parseInt(csvRecord.get("duracion")));
 
                 carreraRepository.save(carrera);
             }
@@ -82,10 +81,12 @@ public class CargaDeDatos {
              CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             for (CSVRecord csvRecord : csvParser) {
                 // En tu CSV de matriculaciones, id_estudiante es en realidad el DNI
-                Integer dniEstudiante = Integer.parseInt(csvRecord.get("id_estudiante"));
-                Integer idCarrera = Integer.parseInt(csvRecord.get("id_carrera"));
+                Long dniEstudiante = Long.parseLong(csvRecord.get("id_estudiante"));
+                Long idCarrera = Long.parseLong(csvRecord.get("id_carrera"));
                 int inscripcion = Integer.parseInt(csvRecord.get("inscripcion"));
-                int graduacion = Integer.parseInt(csvRecord.get("graduacion"));
+                // 0 significa que el estudiante todavía no se graduó
+                int graduacionCsv = Integer.parseInt(csvRecord.get("graduacion"));
+                Integer graduacion = (graduacionCsv == 0) ? null : graduacionCsv;
 
                 // Si en tu clase EstudianteCarrera no tenés el campo antigüedad, podés omitirlo.
                 // Acá asumimos que buscás por el DNI/ID con el que guardaste al estudiante:

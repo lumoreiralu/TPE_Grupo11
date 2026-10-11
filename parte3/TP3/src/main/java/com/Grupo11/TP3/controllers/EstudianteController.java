@@ -16,14 +16,13 @@ public class EstudianteController
     @Autowired
     private EstudianteService estudianteServicio;
 
-    // Inciso para ver todos los estudiantes
-    @GetMapping("")
-    public ResponseEntity<?> getAllEstudiantes() {
+    // Inciso 2.e
+    @GetMapping("/genero/{genero}")
+    public ResponseEntity<?> getEstudiantesPorGenero(@PathVariable String genero) {
         try {
-            List<Estudiante> estudiantes = estudianteServicio.findAll();
-            return ResponseEntity.status(HttpStatus.OK).body(estudiantes);
+            return ResponseEntity.ok(estudianteServicio.getEstudiantesPorGenero(genero));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\": \"Error al obtener la lista de estudiantes.\"}");
+            return ResponseEntity.status(500).build();
         }
     }
 
@@ -33,8 +32,7 @@ public class EstudianteController
         try{
             return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.save(estudiante));
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{Error: No se pudo cargar al estudiante.");
-
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"error\":\"No se pudo cargar al estudiante.\"}");
         }
     }
 
@@ -44,7 +42,7 @@ public class EstudianteController
         try{
             return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.buscarEstudiantePorLU(lu));
         }catch(Exception e){
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{Error: intente de nuevo ");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\":\"No se encontro el estudiante.\"}");
         }
     }
 
@@ -58,6 +56,4 @@ public class EstudianteController
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\": \"Error al obtener la lista de estudiantes.\"}");
         }
     }
-
-
 }

@@ -1,4 +1,5 @@
 package com.Grupo11.TP3.services;
+import com.Grupo11.TP3.models.Estudiante;
 import com.Grupo11.TP3.models.EstudianteCarrera;
 import com.Grupo11.TP3.repository.EstudianteCarreraRepository;
 import jakarta.transaction.Transactional;
@@ -11,7 +12,7 @@ import java.util.List;
 @Service("EstudianteCarreraService")
 public class EstudianteCarreraService implements BaseService<EstudianteCarrera> {
 
-    @Autowired // <--- 2. Inyectamos la instancia del repositorio
+    @Autowired
     private EstudianteCarreraRepository estudianteCarreraRepository;
 
     @Override
@@ -43,5 +44,11 @@ public class EstudianteCarreraService implements BaseService<EstudianteCarrera> 
     @Override
     public boolean delete(Long id) throws Exception {
         return false;
+    }
+
+    // Inciso 2.g
+    @Transactional
+    public List<Estudiante> findEstudiantesPorCarreraYCiudad(long id, String ciudad) throws Exception {
+        return estudianteCarreraRepository.findEstudiantesPorCarreraYCiudad(id, ciudad);
     }
 }
