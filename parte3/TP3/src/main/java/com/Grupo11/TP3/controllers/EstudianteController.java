@@ -37,7 +37,7 @@ public class EstudianteController
     }
 
     //inciso 2.d
-    @GetMapping("/{lu}")
+    @GetMapping("/lu/{lu}")
     public ResponseEntity<?> getEstudianteByLU(@PathVariable int lu){
         try{
             return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.buscarEstudiantePorLU(lu));

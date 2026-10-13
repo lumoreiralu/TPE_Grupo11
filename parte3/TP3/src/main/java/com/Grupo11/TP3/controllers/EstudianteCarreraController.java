@@ -24,7 +24,7 @@ public class EstudianteCarreraController {
     }
 
     //Inciso 2.g
-    @GetMapping("/id/{id}")
+    @GetMapping("/id/{id}?ciudad={ciudad}")
     public ResponseEntity<?> findEstudiantesPorCarreraYCiudad(@PathVariable Long id, @RequestParam String ciudad) {
         try {
             return ResponseEntity.ok(estudianteCarreraServicio.findEstudiantesPorCarreraYCiudad(id, ciudad));

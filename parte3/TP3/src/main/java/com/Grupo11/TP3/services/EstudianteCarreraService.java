@@ -48,7 +48,7 @@ public class EstudianteCarreraService implements BaseService<EstudianteCarrera> 
 
     // Inciso 2.g
     @Transactional
-    public List<Estudiante> findEstudiantesPorCarreraYCiudad(long id, String ciudad) throws Exception {
+    public List<Estudiante> findEstudiantesPorCarreraYCiudad(Long id, String ciudad) throws Exception {
         return estudianteCarreraRepository.findEstudiantesPorCarreraYCiudad(id, ciudad);
     }
 }
