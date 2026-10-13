@@ -30,4 +30,16 @@ public class CarreraController {
         }
     }
 
+    // Inciso 2.h - Reporte de carreras: inscriptos y egresados por año
+    // GET /carreras/reporte
+    @GetMapping("/reporte")
+    public ResponseEntity<?> getReporteCarreras() {
+        try {
+            return ResponseEntity.status(HttpStatus.OK).body(carreraServicio.getReporteCarreras());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("{\"error\": \"Error al generar el reporte de carreras.\"}");
+        }
+    }
+
 }
