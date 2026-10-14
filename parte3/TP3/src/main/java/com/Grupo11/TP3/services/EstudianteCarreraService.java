@@ -46,6 +46,12 @@ public class EstudianteCarreraService implements BaseService<EstudianteCarrera> 
         return false;
     }
 
+    // Inciso 2.f
+    @Transactional
+    public List<Carrera> findCarrerasConEstudiantesInscriptosOrdenado() throws Exception {
+        return estudianteCarreraRepository.findCarrerasConEstudiantesInscriptosOrdenado();
+    }
+
     // Inciso 2.g
     @Transactional
     public List<Estudiante> findEstudiantesPorCarreraYCiudad(Long id, String ciudad) throws Exception {

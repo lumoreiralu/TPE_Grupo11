@@ -12,6 +12,13 @@ import java.util.List;
 @Repository
 public interface EstudianteCarreraRepository extends RepoBase<EstudianteCarrera, EstudianteCarreraPK> {
 
+    // Inciso 2.f
+    @Query("SELECT ec.carrera " +
+            "FROM EstudianteCarrera ec " +
+            "GROUP BY ec.carrera " +
+            "ORDER BY COUNT(ec.estudiante) DESC")
+    List<Carrera> findCarrerasConEstudiantesInscriptosOrdenado();
+
     // Inciso 2.g
     @Query("SELECT ec.estudiante FROM EstudianteCarrera ec   " +
             "WHERE ec.id.idCarrera = :idCarrera " +

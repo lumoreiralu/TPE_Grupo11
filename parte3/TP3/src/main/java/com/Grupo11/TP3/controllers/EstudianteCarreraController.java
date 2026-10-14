@@ -23,6 +23,16 @@ public class EstudianteCarreraController {
         }
     }
 
+    //Inciso 2.f
+    @GetMapping("/con-estudiantes")
+    public ResponseEntity<?> findCarrerasConEstudiantesInscriptosOrdenado() {
+        try {
+            return ResponseEntity.ok(estudianteCarreraServicio.findCarrerasConEstudiantesInscriptosOrdenado());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).build();
+        }
+    }
+
     //Inciso 2.g
     @GetMapping("/id/{id}?ciudad={ciudad}")
     public ResponseEntity<?> findEstudiantesPorCarreraYCiudad(@PathVariable Long id, @RequestParam String ciudad) {
