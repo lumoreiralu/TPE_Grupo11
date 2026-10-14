@@ -42,4 +42,24 @@ public class EstudianteCarreraController {
             return ResponseEntity.status(500).build();
         }
     }
+
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody EstudianteCarrera entity) {
+        try {
+            return ResponseEntity.status(HttpStatus.OK).body(estudianteCarreraServicio.update(id, entity));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"error\":\"Error. No se pudo actualizar, revise los campos e intente nuevamente.\"}");
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        try {
+            estudianteCarreraServicio.delete(id);
+            return ResponseEntity.status(HttpStatus.OK).body("{\"mensaje\":\"Registro eliminado correctamente.\"}");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"error\":\"Error. No se pudo eliminar el registro, verifique el ID e intente nuevamente.\"}");
+        }
+    }
 }

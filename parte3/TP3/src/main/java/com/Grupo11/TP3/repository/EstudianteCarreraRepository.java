@@ -1,5 +1,6 @@
 package com.Grupo11.TP3.repository;
 
+import com.Grupo11.TP3.models.Carrera;
 import com.Grupo11.TP3.models.Estudiante;
 import com.Grupo11.TP3.models.EstudianteCarrera;
 import com.Grupo11.TP3.models.EstudianteCarreraPK;

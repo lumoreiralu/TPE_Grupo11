@@ -17,11 +17,7 @@ public class EstudianteService implements BaseService<Estudiante>{
 
     @Override
     public List<Estudiante> findAll() throws Exception {
-        try {
-            return estudianteRepository.findAll();
-        } catch (Exception e) {
-            throw new Exception("Error al buscar los estudiantes: " + e.getMessage());
-        }
+        return estudianteRepository.findAll();
     }
 
     @Override
@@ -41,15 +37,6 @@ public class EstudianteService implements BaseService<Estudiante>{
         }
     }
 
-    @Override
-    public Estudiante update(Long id, Estudiante entity) throws Exception {
-        return null;
-    }
-
-    @Override
-    public boolean delete(Long id) throws Exception {
-        return false;
-    }
 
     //Inciso 2.d
     @Transactional
@@ -78,6 +65,37 @@ public class EstudianteService implements BaseService<Estudiante>{
             return estudianteRepository.findByGenero(genero);
         } catch (Exception e) {
             throw new Exception(e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public Estudiante update(Long id, Estudiante entity) throws Exception {
+        try {
+            if (!estudianteRepository.existsById(id)) {
+                throw new Exception("No se encontró el estudiante con el ID: " + id);
+            }
+            entity.setDni(id);
+
+            // save funciona como update si el ID ya existe en la base de datos
+            return estudianteRepository.save(entity);
+        } catch (Exception e) {
+            throw new Exception("Error al actualizar el estudiante: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public boolean delete(Long id) throws Exception {
+        try {
+            if (!estudianteRepository.existsById(id)) {
+                throw new Exception("No se encontró el estudiante con el ID: " + id);
+            }
+
+            estudianteRepository.deleteById(id);
+            return true; // Retornamos true si se borró con éxito
+        } catch (Exception e) {
+            throw new Exception("Error al eliminar el estudiante: " + e.getMessage(), e);
         }
     }
 }

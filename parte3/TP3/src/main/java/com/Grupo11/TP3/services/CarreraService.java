@@ -38,19 +38,15 @@ public class CarreraService implements BaseService<Carrera> {
     }
 
     @Override
-    public Carrera save(Carrera entity) throws Exception {
-        return null;
+    public Carrera save(Carrera carrera) throws Exception {
+        try{
+            return  carreraRepo.save(carrera);
+        }
+        catch(Exception e){
+            throw new Exception(e.getMessage());
+        }
     }
 
-    @Override
-    public Carrera update(Long id, Carrera entity) throws Exception {
-        return null;
-    }
-
-    @Override
-    public boolean delete(Long id) throws Exception {
-        return false;
-    }
 
     // Inciso 2.h - Reporte de carreras: inscriptos y egresados por año.
     // Se hacen 2 consultas JPQL (inscriptos y egresados) y se combinan acá, porque
@@ -91,6 +87,38 @@ public class CarreraService implements BaseService<Carrera> {
             return resultado;
         } catch (Exception e) {
             throw new Exception("Error al generar el reporte de carreras: " + e.getMessage());
+        }
+    }
+
+
+    @Override
+    @Transactional
+    public Carrera update(Long id, Carrera entity) throws Exception {
+        try {
+            if (!carreraRepo.existsById(id)) {
+                throw new Exception("No se encontró la carrera con el ID: " + id);
+            }
+            entity.setId(id);
+
+            // save funciona como update si el ID ya existe en la base de datos
+            return carreraRepo.save(entity);
+        } catch (Exception e) {
+            throw new Exception("Error al actualizar la carrera: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    @Transactional
+    public boolean delete(Long id) throws Exception {
+        try {
+            if (!carreraRepo.existsById(id)) {
+                throw new Exception("No se encontró la carrera con el ID: " + id);
+            }
+
+            carreraRepo.deleteById(id);
+            return true;
+        } catch (Exception e) {
+            throw new Exception("Error al eliminar la carrera: " + e.getMessage(), e);
         }
     }
 }

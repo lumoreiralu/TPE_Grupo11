@@ -20,4 +20,5 @@ public interface EstudianteRepository extends RepoBase<Estudiante, Long> {
     //inciso 2.e
     @Query("SELECT e FROM Estudiante e WHERE e.genero = :genero")
     List<Estudiante> findByGenero(@Param("genero") String genero);
+
 }

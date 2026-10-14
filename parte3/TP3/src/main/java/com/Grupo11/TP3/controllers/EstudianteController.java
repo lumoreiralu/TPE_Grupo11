@@ -1,6 +1,8 @@
 package com.Grupo11.TP3.controllers;
 
+import com.Grupo11.TP3.models.Carrera;
 import com.Grupo11.TP3.models.Estudiante;
+import com.Grupo11.TP3.models.EstudianteCarrera;
 import com.Grupo11.TP3.services.EstudianteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -51,6 +53,35 @@ public class EstudianteController
     public ResponseEntity<?> getEstudiantesOrdenados() {
         try {
             List<Estudiante> estudiantes = estudianteServicio.getEstudiantesOrdenadosPorApellido();
+            return ResponseEntity.status(HttpStatus.OK).body(estudiantes);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\": \"Error al obtener la lista de estudiantes.\"}");
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Estudiante entity) {
+        try {
+            return ResponseEntity.status(HttpStatus.OK).body(estudianteServicio.update(id, entity));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"error\":\"Error. No se pudo actualizar, revise los campos e intente nuevamente.\"}");
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        try {
+            estudianteServicio.delete(id);
+            return ResponseEntity.status(HttpStatus.OK).body("{\"mensaje\":\"Registro eliminado correctamente.\"}");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("{\"error\":\"Error. No se pudo eliminar el registro, verifique el ID e intente nuevamente.\"}");
+        }
+    }
+
+    @GetMapping("")
+    public ResponseEntity<?> getAllEstudiantes() {
+        try {
+            List<Estudiante> estudiantes = estudianteServicio.findAll();
             return ResponseEntity.status(HttpStatus.OK).body(estudiantes);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("{\"error\": \"Error al obtener la lista de estudiantes.\"}");
