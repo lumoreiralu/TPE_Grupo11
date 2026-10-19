@@ -10,13 +10,12 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ResourceUtils;
 
-
-import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class CargaDeDatos {
@@ -41,8 +40,8 @@ public class CargaDeDatos {
     }
 
     private void cargarCarreras() throws IOException {
-        File archivoCSV = ResourceUtils.getFile("src/main/resources/csv/carreras.csv");
-        try (FileReader reader = new FileReader(archivoCSV);
+        try (InputStreamReader reader = new InputStreamReader(
+                new ClassPathResource("csv/carreras.csv").getInputStream(), StandardCharsets.UTF_8);
              CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             for (CSVRecord csvRecord : csvParser) {
                 Carrera carrera = new Carrera();
@@ -56,8 +55,8 @@ public class CargaDeDatos {
     }
 
     private void cargarEstudiantes() throws IOException {
-        File archivoCSV = ResourceUtils.getFile("src/main/resources/csv/estudiantes.csv");
-        try (FileReader reader = new FileReader(archivoCSV);
+        try (InputStreamReader reader = new InputStreamReader(
+                new ClassPathResource("csv/estudiantes.csv").getInputStream(), StandardCharsets.UTF_8);
              CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             for (CSVRecord csvRecord : csvParser) {
                 Estudiante e = new Estudiante();
@@ -76,8 +75,8 @@ public class CargaDeDatos {
     }
 
     private void cargarMatriculaciones() throws IOException {
-        File archivoCSV = ResourceUtils.getFile("src/main/resources/csv/estudianteCarrera.csv");
-        try (FileReader reader = new FileReader(archivoCSV);
+        try (InputStreamReader reader = new InputStreamReader(
+                new ClassPathResource("csv/estudianteCarrera.csv").getInputStream(), StandardCharsets.UTF_8);
              CSVParser csvParser = CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(reader)) {
             for (CSVRecord csvRecord : csvParser) {
                 // En tu CSV de matriculaciones, id_estudiante es en realidad el DNI
