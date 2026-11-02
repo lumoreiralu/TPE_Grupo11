@@ -1,0 +1,50 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
+context: | 
+  TicketYa: Plataforma de venta masiva de entradas para eventos basada en microservicios. 
+  Stack: Java 17+, Spring Boot, Spring Cloud Gateway, Docker, PostgreSQL/MySQL, MongoDB.
+  Metodología: Spec-Driven Development (SDD) con especificaciones escritas en español. 
+  Principios clave: 
+  - Garantizar unicidad e idempotencia en la venta de entradas (cero doble venta de asientos/cupos). 
+  - Mecanismos de reserva temporal con TTL (10 minutos). 
+  - Separación estricta de bases de datos por microservicio (Database per Service).
+  Las decisiones pendientes no deben redactarse como requisitos concluidos. 
+  rules: 
+  specs: 
+  - Redactar cada requisito y sus criterios de aceptación en notación EARS (When/If/While ... the system shall).
+  - Incluir al menos un Scenario específico por cada criterio EARS. design: 
+  - Registrar cualquier decisión técnica difícil de revertir como un ADR en \`docs/adr/\`. 
+  - Mantener independencia estricta de esquemas de base de datos entre microservicios. tasks: 
+  - Definir las pruebas de integración/concurrencia antes de dar por completada la implementación.
