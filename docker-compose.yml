@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  # Base de datos NoSQL para el Servicio de Eventos y Catálogo
+  mongo-eventos:
+    image: mongo:latest
+    container_name: ticketya-mongo-eventos
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+      MONGO_INITDB_DATABASE: db_eventos
+    volumes:
+      - mongo_data:/data/db
+
+  # Base de datos Relacional para Compras y Entradas
+  postgres-db:
+    image: postgres:15-alpine
+    container_name: ticketya-postgres
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: db_ticketya
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+
+volumes:
+  mongo_data:
+  postgres_data:

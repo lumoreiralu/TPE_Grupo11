@@ -1,14 +1,14 @@
 ### **4. `openspec/changes/core-ticket-purchase/tasks.md`** 
 ```markdown
  # Checklist de Implementación (Tasks)
- - [ ] **Fase 1: Preparación del Repositorio y Entorno** 
- - [ ] Crear el proyecto base de Spring Boot para cada microservicio (`api-gateway`, `eventos-service`, `compras-service`, `entradas-service`, `pasarela-mock-service`). 
- - [ ] Configurar el archivo `docker-compose.yml` para levantar las bases de datos (PostgreSQL y MongoDB). 
+ - [x] **Fase 1: Preparación del Repositorio y Entorno** 
+ - [x] Crear el proyecto base de Spring Boot para cada microservicio (`api-gateway`, `eventos-service`, `compras-service`, `entradas-service`, `pasarela-mock-service`). 
+ - [x] Configurar el archivo `docker-compose.yml` para levantar las bases de datos (PostgreSQL y MongoDB). 
  
- - [ ] **Fase 2: Implementación de `eventos-service`** 
- - [ ] Implementar entidades y repositorios de Lugares y Eventos. 
- - [ ] Crear endpoints REST para ABM de lugares, sectores y publicación de eventos. 
- - [ ] Implementar búsqueda multi-criterio de eventos publicadas. 
+ - [x] **Fase 2: Implementación de `eventos-service`** 
+ - [x] Implementar entidades y repositorios de Lugares y Eventos. 
+ - [x] Crear endpoints REST para ABM de lugares, sectores y publicación de eventos. 
+ - [] Implementar búsqueda multi-criterio de eventos publicadas. 
  
  - [ ] **Fase 3: Implementación de `compras-service` (Core anti-doble venta)** 
  - [ ] Diseñar el mecanismo de bloqueo pesimista/optimista o índice único en `bloqueos_asientos`. 
