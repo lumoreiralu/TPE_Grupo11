@@ -1,7 +1,10 @@
 package ticketya.eventos_service.model;
 
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -19,14 +22,19 @@ public class Evento {
     private TipoEvento tipoEvento;
     private String organizadorId;
     private List<String> participantes;
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime fechaHora;
     private String lugarId;
-    private EstadoEvento estadoEvento = EstadoEvento.BORRADOR;
+    private EstadoEvento estado = EstadoEvento.BORRADOR;
     private List<PrecioSector> preciosSectores;
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class PrecioSector {
         private String idSector;
         private BigDecimal precio;
     }
+
+
 }

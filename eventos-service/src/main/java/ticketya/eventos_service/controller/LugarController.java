@@ -26,7 +26,7 @@ public class LugarController {
         return new ResponseEntity<>(lugarRepository.findAll(), HttpStatus.OK);
     }
 
-    @GetMapping("/{id")
+    @GetMapping("/{id}")
     public ResponseEntity<Lugar> obtenerLugarPorId(@PathVariable String id){
         return lugarRepository.findById(id)
                 .map(ResponseEntity::ok)

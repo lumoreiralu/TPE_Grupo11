@@ -18,7 +18,7 @@ public class EventoController {
 
     @PostMapping
     public ResponseEntity<Evento> crearEvento(@RequestBody Evento evento) {
-        evento.setEstadoEvento(EstadoEvento.BORRADOR);
+        evento.setEstado(EstadoEvento.BORRADOR);
         Evento nuevoEvento = eventoRepository.save(evento);
         return new ResponseEntity<>(nuevoEvento, HttpStatus.CREATED);
     }
@@ -36,7 +36,7 @@ public class EventoController {
     @PutMapping("/{id}/publicar")
     public ResponseEntity<Evento> publicarEvento(@PathVariable String id) {
         return eventoRepository.findById(id).map(evento ->{
-            evento.setEstadoEvento(EstadoEvento.PUBLICADO);
+            evento.setEstado(EstadoEvento.PUBLICADO);
             return ResponseEntity.ok(eventoRepository.save(evento));
         }).orElse(ResponseEntity.notFound().build());
     }

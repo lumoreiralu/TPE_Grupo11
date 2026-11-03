@@ -1,7 +1,9 @@
 package ticketya.eventos_service.model;
 
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -17,12 +19,16 @@ public class Lugar {
     private List<Sector> sectores;
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Ubicacion {
         private double latitud;
         private double longitud;
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Sector {
         private String sectorId;
         private String nombre;
@@ -32,8 +38,26 @@ public class Lugar {
     }
 
     @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class FilaSector {
         private String fila;
         private List<Integer> asientos;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public void setDireccion(String direccion) {
+        this.direccion = direccion;
+    }
+
+    public void setSectores(List<Sector> sectores) {
+        this.sectores = sectores;
     }
 }
