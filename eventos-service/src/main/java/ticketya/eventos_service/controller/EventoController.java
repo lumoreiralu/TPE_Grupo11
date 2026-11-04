@@ -28,6 +28,13 @@ public class EventoController {
         return new ResponseEntity<>(eventoRepository.findAll(), HttpStatus.OK);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<Evento> obtenerEventoPorId(@PathVariable String id) {
+        return eventoRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/publicados")
     public ResponseEntity<List<Evento>> obtenerEventosPublicados() {
         return ResponseEntity.ok(eventoRepository.findByEstado(EstadoEvento.PUBLICADO));
