@@ -25,6 +25,7 @@ public class Evento {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime fechaHora;
     private String lugarId;
+    private String ciudad;
     private EstadoEvento estado = EstadoEvento.BORRADOR;
     private List<PrecioSector> preciosSectores;
 

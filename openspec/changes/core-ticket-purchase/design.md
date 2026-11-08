@@ -9,8 +9,8 @@
 
 ## 2. Modelo de Datos por Microservicio
 ### A. `eventos-service` (MongoDB) 
-- **`Lugares`**: `{ _id, nombre, direccion, ubicacion: { lat, lon }, sectores: [{ sector_id, nombre, tipo, capacidad_maxima, filas }] }`
-- **`Eventos`**: `{ _id, nombre, descripcion, tipo, organizador_id, fecha_hora, lugar_id, estado, precios_sectores: [{ sector_id, precio }] }` 
+- **`Lugares`**: `{ _id, nombre, direccion, ciudad, ubicacion: { lat, lon }, sectores: [{ sector_id, nombre, tipo, capacidad_maxima, filas }] }`
+- **`Eventos`**: `{ _id, nombre, descripcion, tipo, organizador_id, fecha_hora, lugar_id, ciudad, estado, precios_sectores: [{ sector_id, precio }] }` 
 
 ### B. `compras-service` (PostgreSQL)  
 - **`ordenes_compra`**: `id (UUID PK), cliente_id, evento_id, fecha_creacion, fecha_expiracion_reserva, estado, monto_total, transaccion_pago_id`
