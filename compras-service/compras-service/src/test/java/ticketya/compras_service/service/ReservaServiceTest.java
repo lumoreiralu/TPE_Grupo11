@@ -6,8 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import ticketya.compras_service.client.EventoDTO;
-import ticketya.compras_service.client.EventosClient;
+import ticketya.compras_service.client.*;
+import ticketya.compras_service.dto.ConfirmacionPagoResponse;
+import ticketya.compras_service.dto.ConfirmarPagoRequest;
 import ticketya.compras_service.dto.ItemReserva;
 import ticketya.compras_service.dto.ReservaRequest;
 import ticketya.compras_service.dto.ReservaResponse;
@@ -29,10 +30,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 class ReservaServiceTest {
@@ -44,6 +44,9 @@ class ReservaServiceTest {
     private ReservaService reservaService;
 
     @Autowired
+    private CompraTransaccionService transaccionService;
+
+    @Autowired
     private OrdenCompraRepository ordenRepo;
 
     @Autowired
@@ -51,6 +54,12 @@ class ReservaServiceTest {
 
     @MockitoBean
     private EventosClient eventosClient;
+
+    @MockitoBean
+    private PasarelaClient pasarelaClient;
+
+    @MockitoBean
+    private EntradasClient entradasClient;
 
     @BeforeEach
     void setUp() {
@@ -159,6 +168,134 @@ class ReservaServiceTest {
                 ordenRepo.findById(guardada.getId()).orElseThrow().getEstado());
         assertTrue(bloqueoRepo.findByOrdenId(guardada.getId()).isEmpty(),
                 "Los bloqueos de una orden vencida deben eliminarse");
+    }
+
+    @Test
+    void confirmarPagoAprobadoCompletaOrdenVendeAsientosYEmitenTickets() {
+        ReservaResponse reserva = reservaService.reservar(request("cliente-pago"), "idem-pago");
+
+        when(pasarelaClient.procesarPago(any()))
+                .thenReturn(new PagoResponse("txn-12345", "APROBADO", "Pago aprobado exitosamente"));
+
+        when(entradasClient.emitirEntradas(any()))
+                .thenReturn(new EmisionResponse(
+                        reserva.ordenId().toString(),
+                        List.of(new EmisionResponse.EntradaDTO(
+                                "ent-1", SECTOR_ID, "A", 1, "hash-qr-123", "EMITIDA", LocalDateTime.now().toString()))));
+
+        ConfirmacionPagoResponse confirmacion = reservaService.confirmarPago(
+                reserva.ordenId(),
+                new ConfirmarPagoRequest("TARJETA_CREDITO"));
+
+        assertEquals(EstadoOrden.COMPLETADA, confirmacion.estado());
+        assertEquals("txn-12345", confirmacion.transaccionPagoId());
+        assertEquals(1, confirmacion.entradas().size());
+        assertEquals("hash-qr-123", confirmacion.entradas().get(0).codigoQrHash());
+
+        // Verificar persistencia de orden y bloqueo en base de datos
+        OrdenCompra ordenGuardada = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        assertEquals(EstadoOrden.COMPLETADA, ordenGuardada.getEstado());
+        assertEquals("txn-12345", ordenGuardada.getTransaccionPagoId());
+
+        List<BloqueoAsiento> bloqueos = bloqueoRepo.findByOrdenId(reserva.ordenId());
+        assertEquals(1, bloqueos.size());
+        assertEquals(EstadoBloqueo.VENDIDO, bloqueos.get(0).getEstado());
+    }
+
+    @Test
+    void confirmarPagoRechazadoLiberaAsientosYCancelaOrdenEnBD() {
+        ReservaResponse reserva = reservaService.reservar(request("cliente-rechazo"), "idem-rechazo");
+
+        when(pasarelaClient.procesarPago(any()))
+                .thenReturn(new PagoResponse("txn-rechazada", "RECHAZADO", "Fondos insuficientes"));
+
+        NegocioException exception = assertThrows(NegocioException.class, () ->
+                reservaService.confirmarPago(reserva.ordenId(), new ConfirmarPagoRequest("TARJETA_RECHAZADA")));
+
+        assertEquals(HttpStatus.PAYMENT_REQUIRED, exception.getStatus());
+
+        // R5.3: Verificar que los asientos fueron liberados efectivamente en la BD
+        assertTrue(bloqueoRepo.findByOrdenId(reserva.ordenId()).isEmpty(),
+                "Los bloqueos deben liberarse en la base de datos cuando el pago es rechazado");
+
+        // Verificar que la orden pasa a CANCELADA en la BD y no se hizo rollback
+        OrdenCompra ordenGuardada = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        assertEquals(EstadoOrden.CANCELADA, ordenGuardada.getEstado());
+        assertEquals("txn-rechazada", ordenGuardada.getTransaccionPagoId());
+    }
+
+    @Test
+    void confirmarPagoReservaVencidaLiberaAsientosYMarcaExpiradaEnBD() {
+        ReservaResponse reserva = reservaService.reservar(request("cliente-vencido-2"), "idem-vencido-2");
+
+        // Forzar vencimiento de la reserva en BD
+        OrdenCompra orden = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        orden.setFechaExpiracionReserva(LocalDateTime.now().minusMinutes(1));
+        ordenRepo.saveAndFlush(orden);
+
+        NegocioException exception = assertThrows(NegocioException.class, () ->
+                reservaService.confirmarPago(reserva.ordenId(), new ConfirmarPagoRequest("TARJETA")));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+
+        // Verificar que la orden quedó EXPIRADA y sin bloqueos en la BD
+        assertTrue(bloqueoRepo.findByOrdenId(reserva.ordenId()).isEmpty());
+        assertEquals(EstadoOrden.EXPIRADA, ordenRepo.findById(reserva.ordenId()).orElseThrow().getEstado());
+
+        // No debe haberse llamado a la pasarela
+        verify(pasarelaClient, never()).procesarPago(any());
+    }
+
+    @Test
+    void reintentoTrasFalloDeEmisionNoVuelveACobrar() {
+        ReservaResponse reserva = reservaService.reservar(request("cliente-reintento"), "idem-reintento");
+
+        when(pasarelaClient.procesarPago(any()))
+                .thenReturn(new PagoResponse("txn-unica-123", "APROBADO", "Pago aprobado"));
+
+        // Simular que entradas-service falla en el primer intento
+        when(entradasClient.emitirEntradas(any()))
+                .thenThrow(new NegocioException(HttpStatus.BAD_GATEWAY, "entradas-service 500"))
+                .thenReturn(new EmisionResponse(
+                        reserva.ordenId().toString(),
+                        List.of(new EmisionResponse.EntradaDTO("ent-1", SECTOR_ID, "A", 1, "qr-1", "EMITIDA", LocalDateTime.now().toString()))));
+
+        // Primer intento de confirmación falla al emitir
+        assertThrows(NegocioException.class, () ->
+                reservaService.confirmarPago(reserva.ordenId(), new ConfirmarPagoRequest("TARJETA")));
+
+        // La orden debe estar en PAGO_CONFIRMADO con el ID de transacción guardado
+        OrdenCompra ordenEnBD = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        assertEquals(EstadoOrden.PAGO_CONFIRMADO, ordenEnBD.getEstado());
+        assertEquals("txn-unica-123", ordenEnBD.getTransaccionPagoId());
+
+        // Segundo intento: Reintento por parte del cliente
+        ConfirmacionPagoResponse respuestaReintento = reservaService.confirmarPago(
+                reserva.ordenId(), new ConfirmarPagoRequest("TARJETA"));
+
+        assertEquals(EstadoOrden.COMPLETADA, respuestaReintento.estado());
+        assertEquals(1, respuestaReintento.entradas().size());
+
+        // Verificar que la pasarela se llamó exactamente UNA sola vez
+        verify(pasarelaClient, times(1)).procesarPago(any());
+    }
+
+    @Test
+    void confirmacionSimultaneaBloqueaDobleCobro() {
+        ReservaResponse reserva = reservaService.reservar(request("cliente-simultaneo"), "idem-sim");
+
+        // Marcar la orden como PROCESANDO_PAGO simulando una llamada concurrente en curso
+        transaccionService.iniciarProcesamientoPago(reserva.ordenId());
+
+        // La segunda llamada simultánea debe ser rechazada con 409 CONFLICT
+        NegocioException exception = assertThrows(NegocioException.class, () ->
+                reservaService.confirmarPago(reserva.ordenId(), new ConfirmarPagoRequest("TARJETA")));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertTrue(exception.getMessage().contains("proceso"));
+
+        // No debe llamarse a la pasarela
+        verify(pasarelaClient, never()).procesarPago(any());
     }
 
     private ReservaRequest request(String clienteId) {

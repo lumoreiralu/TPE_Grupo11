@@ -5,11 +5,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ticketya.compras_service.client.EventoDTO;
-import ticketya.compras_service.client.EventosClient;
-import ticketya.compras_service.dto.ItemReserva;
-import ticketya.compras_service.dto.ReservaRequest;
-import ticketya.compras_service.dto.ReservaResponse;
+import ticketya.compras_service.client.*;
+import ticketya.compras_service.dto.*;
 import ticketya.compras_service.exception.NegocioException;
 import ticketya.compras_service.model.*;
 import ticketya.compras_service.repository.BloqueoAsientoRepository;
@@ -19,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class ReservaService {
@@ -26,6 +24,9 @@ public class ReservaService {
     private final OrdenCompraRepository ordenRepo;
     private final BloqueoAsientoRepository bloqueoRepo;
     private final EventosClient eventosClient;
+    private final PasarelaClient pasarelaClient;
+    private final EntradasClient entradasClient;
+    private final CompraTransaccionService transaccionService;
 
     @Value("${compras.reserva.minutos}")
     private int minutosReserva;
@@ -35,10 +36,16 @@ public class ReservaService {
 
     public ReservaService(OrdenCompraRepository ordenRepo,
                           BloqueoAsientoRepository bloqueoRepo,
-                          EventosClient eventosClient) {
+                          EventosClient eventosClient,
+                          PasarelaClient pasarelaClient,
+                          EntradasClient entradasClient,
+                          CompraTransaccionService transaccionService) {
         this.ordenRepo = ordenRepo;
         this.bloqueoRepo = bloqueoRepo;
         this.eventosClient = eventosClient;
+        this.pasarelaClient = pasarelaClient;
+        this.entradasClient = entradasClient;
+        this.transaccionService = transaccionService;
     }
 
     @Transactional
@@ -65,7 +72,8 @@ public class ReservaService {
         // 4. Limite de entradas por cliente para este evento
         long yaTiene = ordenRepo.contarEntradasDelCliente(
                 req.clienteId(), req.eventoId(),
-                List.of(EstadoOrden.RESERVADA_TEMPORAL, EstadoOrden.COMPLETADA));
+                List.of(EstadoOrden.RESERVADA_TEMPORAL, EstadoOrden.PROCESANDO_PAGO,
+                        EstadoOrden.PAGO_CONFIRMADO, EstadoOrden.COMPLETADA));
         if (yaTiene + req.items().size() > limiteEntradas) {
             throw new NegocioException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "Supera el maximo de " + limiteEntradas + " entradas por cliente para este evento");
@@ -97,7 +105,6 @@ public class ReservaService {
         orden = ordenRepo.saveAndFlush(orden);
 
         // 6. Un bloqueo por asiento. La restriccion UNICA decide quien gana.
-        //    Si falla, se lanza la excepcion y la transaccion deshace todo.
         for (ItemReserva item : req.items()) {
             BloqueoAsiento bloqueo = new BloqueoAsiento();
             bloqueo.setEventoId(req.eventoId());
@@ -118,8 +125,109 @@ public class ReservaService {
         return aRespuesta(orden);
     }
 
-    // Marca como EXPIRADAS las ordenes vencidas y libera sus asientos.
-    // Despues la va a llamar tambien un proceso programado.
+    // Confirmación de pago con límites transaccionales independientes (sin llamadas HTTP dentro de transacciones de BD)
+    public ConfirmacionPagoResponse confirmarPago(UUID ordenId, ConfirmarPagoRequest req) {
+        // 1. Iniciar procesamiento (atómico, evita concurrencia y valida expiración)
+        OrdenCompra orden = transaccionService.iniciarProcesamientoPago(ordenId);
+
+        if (orden.getEstado() == EstadoOrden.EXPIRADA) {
+            throw new NegocioException(HttpStatus.CONFLICT,
+                    "La reserva temporal ha expirado y los asientos han sido liberados");
+        }
+
+        if (orden.getEstado() == EstadoOrden.COMPLETADA) {
+            List<EmisionResponse.EntradaDTO> entradas = entradasClient.obtenerEntradasPorOrden(orden.getId().toString());
+            return new ConfirmacionPagoResponse(
+                    orden.getId(),
+                    orden.getEstado(),
+                    orden.getTransaccionPagoId(),
+                    orden.getMontoTotal(),
+                    orden.getMetodoPago(),
+                    entradas,
+                    "La orden ya fue completada previamente"
+            );
+        }
+
+        String metodoPago = (req != null && req.metodoPago() != null && !req.metodoPago().isBlank())
+                ? req.metodoPago()
+                : "TARJETA";
+
+        // 2. Si no tenía pago confirmado previamente, procesar con la pasarela mock
+        if (orden.getEstado() != EstadoOrden.PAGO_CONFIRMADO) {
+            PagoRequest pagoRequest = new PagoRequest(orden.getMontoTotal(), orden.getId().toString(), metodoPago);
+            PagoResponse pagoResponse;
+            try {
+                pagoResponse = pasarelaClient.procesarPago(pagoRequest);
+            } catch (Exception e) {
+                transaccionService.revertirAEstadoReservado(ordenId);
+                throw e;
+            }
+
+            if (pagoResponse == null || !"APROBADO".equalsIgnoreCase(pagoResponse.estado())) {
+                String transId = pagoResponse != null ? pagoResponse.transaccionId() : null;
+                String motivo = (pagoResponse != null && pagoResponse.mensaje() != null)
+                        ? pagoResponse.mensaje()
+                        : "Pago rechazado por la pasarela";
+
+                // R5.3: El rechazo libera inmediatamente los asientos y cancela la orden de forma confirmada en BD
+                transaccionService.registrarPagoRechazado(ordenId, transId, metodoPago);
+                throw new NegocioException(HttpStatus.PAYMENT_REQUIRED, "El pago fue rechazado: " + motivo);
+            }
+
+            // Pago APROBADO: persistimos inmediatamente el pago y la venta definitiva de los asientos
+            transaccionService.registrarPagoAprobado(ordenId, pagoResponse.transaccionId(), metodoPago);
+            orden = transaccionService.obtenerOrden(ordenId);
+        }
+
+        // 3. Emisión de entradas en entradas-service (fuera de la transacción de BD)
+        // Si falla aquí, el cobro ya está registrado como PAGO_CONFIRMADO; un reintento no vuelve a cobrar
+        List<EmisionRequest.AsientoEntrada> asientos = orden.getDetalles().stream()
+                .map(d -> new EmisionRequest.AsientoEntrada(d.getSectorId(), d.getFila(), d.getAsiento()))
+                .toList();
+        EmisionRequest emisionReq = new EmisionRequest(
+                orden.getId().toString(),
+                orden.getClienteId(),
+                orden.getEventoId(),
+                asientos
+        );
+
+        EmisionResponse emisionResp = entradasClient.emitirEntradas(emisionReq);
+        List<EmisionResponse.EntradaDTO> entradas = (emisionResp != null && emisionResp.entradas() != null)
+                ? emisionResp.entradas()
+                : List.of();
+
+        // 4. Marcar orden como COMPLETADA
+        transaccionService.registrarOrdenCompletada(ordenId);
+        orden = transaccionService.obtenerOrden(ordenId);
+
+        return new ConfirmacionPagoResponse(
+                orden.getId(),
+                orden.getEstado(),
+                orden.getTransaccionPagoId(),
+                orden.getMontoTotal(),
+                orden.getMetodoPago(),
+                entradas,
+                "Compra completada exitosamente"
+        );
+    }
+
+    public ConfirmacionPagoResponse consultarOrden(UUID ordenId) {
+        OrdenCompra orden = transaccionService.obtenerOrden(ordenId);
+        List<EmisionResponse.EntradaDTO> entradas = List.of();
+        if (orden.getEstado() == EstadoOrden.COMPLETADA || orden.getEstado() == EstadoOrden.PAGO_CONFIRMADO) {
+            entradas = entradasClient.obtenerEntradasPorOrden(orden.getId().toString());
+        }
+        return new ConfirmacionPagoResponse(
+                orden.getId(),
+                orden.getEstado(),
+                orden.getTransaccionPagoId(),
+                orden.getMontoTotal(),
+                orden.getMetodoPago(),
+                entradas,
+                "Estado actual de la orden: " + orden.getEstado()
+        );
+    }
+
     @Transactional
     public void liberarReservasVencidas() {
         List<OrdenCompra> vencidas = ordenRepo.findByEstadoAndFechaExpiracionReservaBefore(
@@ -142,7 +250,7 @@ public class ReservaService {
         for (ItemReserva item : req.items()) {
             if (item.sectorId() == null || item.fila() == null || item.asiento() == null) {
                 throw new NegocioException(HttpStatus.BAD_REQUEST,
-                        "Por ahora solo se reservan asientos numerados (sectorId, fila y asiento)");
+                    "Por ahora solo se reservan asientos numerados (sectorId, fila y asiento)");
             }
         }
     }

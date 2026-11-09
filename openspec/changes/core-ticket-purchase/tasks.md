@@ -9,13 +9,14 @@
 - [x] Crear endpoints REST para ABM de lugares, sectores y publicación de eventos.
 - [x] Implementar búsqueda multi-criterio de eventos publicadas.
 
-- [ ] **Fase 3: Implementación de `compras-service` (Core anti-doble venta)**
+- [x] **Fase 3: Implementación de `compras-service` (Core anti-doble venta)**
 - [x] Diseñar el mecanismo de bloqueo pesimista/optimista o índice único en `bloqueos_asientos`.
 - [x] Implementar endpoint de reserva temporal con asignación de vencimiento (10 min).
-- [ ] Integrar llamada síncrona al `pasarela-mock-service` para procesamiento de pago.
-- [ ] **Fase 4: Implementación de `entradas-service`**
-- [ ] Crear generador de código QR hash único.
-- [ ] Implementar endpoint de emisión de entradas invocado por `compras-service`.
+- [x] Integrar llamada síncrona al `pasarela-mock-service` para procesamiento de pago.
+
+- [x] **Fase 4: Implementación de `entradas-service`**
+- [x] Crear generador de código QR hash único.
+- [x] Implementar endpoint de emisión de entradas invocado por `compras-service`.
 
 - [ ] **Fase 5: API Gateway e Integración**
 - [ ] Configurar rutas en `api-gateway` hacia los microservicios backend.

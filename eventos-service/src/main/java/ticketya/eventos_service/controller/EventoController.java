@@ -12,8 +12,10 @@ import ticketya.eventos_service.repository.EventoRepository;
 import ticketya.eventos_service.repository.LugarRepository;
 import ticketya.eventos_service.service.EventoBusquedaService;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/eventos")
@@ -65,12 +67,36 @@ public class EventoController {
     }
 
     @PutMapping("/{id}/publicar")
-    public ResponseEntity<Evento> publicarEvento(@PathVariable String id) {
-        return eventoRepository.findById(id).map(evento ->{
-            evento.setEstado(EstadoEvento.PUBLICADO);
-            completarCiudad(evento);
-            return ResponseEntity.ok(eventoRepository.save(evento));
-        }).orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<?> publicarEvento(
+            @PathVariable String id,
+            @RequestBody(required = false) List<Evento.PrecioSector> precios) {
+        var opt = eventoRepository.findById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Evento evento = opt.get();
+        if (precios != null && !precios.isEmpty()) {
+            evento.setPreciosSectores(precios);
+        }
+
+        // Validación R2.2: Para publicar, deben existir precios asignados por sector mayores a cero
+        if (evento.getPreciosSectores() == null || evento.getPreciosSectores().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .body(Map.of("mensaje", "No se puede publicar el evento: debe tener precios definidos por sector"));
+        }
+
+        boolean todosConPrecioValido = evento.getPreciosSectores().stream()
+                .allMatch(p -> p.getPrecio() != null && p.getPrecio().compareTo(BigDecimal.ZERO) > 0);
+
+        if (!todosConPrecioValido) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                    .body(Map.of("mensaje", "No se puede publicar el evento: todos los sectores deben tener un precio mayor a cero"));
+        }
+
+        evento.setEstado(EstadoEvento.PUBLICADO);
+        completarCiudad(evento);
+        return ResponseEntity.ok(eventoRepository.save(evento));
     }
 
     private void completarCiudad(Evento evento) {
@@ -80,5 +106,4 @@ public class EventoController {
                     .ifPresent(lugar -> evento.setCiudad(lugar.getCiudad()));
         }
     }
-
 }
