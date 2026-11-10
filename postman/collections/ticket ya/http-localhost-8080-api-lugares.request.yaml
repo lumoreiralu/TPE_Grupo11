@@ -1,0 +1,6 @@
+$kind: http-request
+name: http://localhost:8080/api/lugares
+description: ""
+url: http://localhost:8080/api/lugares
+method: GET
+order: 1000

@@ -19,5 +19,5 @@
 - [x] Implementar endpoint de emisión de entradas invocado por `compras-service`.
 
 - [ ] **Fase 5: API Gateway e Integración**
-- [ ] Configurar rutas en `api-gateway` hacia los microservicios backend.
+- [x] Configurar rutas en `api-gateway` hacia los microservicios backend.
 - [ ] Probar el flujo completo de compra de punta a punta.

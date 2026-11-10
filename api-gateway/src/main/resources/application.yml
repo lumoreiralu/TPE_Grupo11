@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            # 1. Eventos y Catálogo
+            - id: eventos-service
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/eventos/**
+
+            - id: lugares-service
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/lugares/**
+
+            # 2. Compras y Reservas
+            - id: compras-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/api/compras/**
+
+            # 3. Entradas y QR
+            - id: entradas-service
+              uri: http://localhost:8083
+              predicates:
+                - Path=/api/entradas/**
+
+            # 4. Pasarela de Pagos Mock
+            - id: pasarela-mock-service
+              uri: http://localhost:8084
+              predicates:
+                - Path=/api/pagos/**

@@ -1,0 +1,11 @@
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/EntradasServiceApplication.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/controller/EntradaController.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/dto/EmisionEntradasRequest.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/dto/EmisionEntradasResponse.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/dto/EntradaResponseDTO.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/dto/ItemEntradaEmision.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/model/Entrada.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/model/EstadoEntrada.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/repository/EntradaRepository.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/service/EntradaService.java
+/Users/lumoreira/Desktop/TUDAI 2026/arqui/TicketYa/entradas-service/src/main/java/com/ticketya/entradas/service/QrCodeGenerator.java

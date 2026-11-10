@@ -1,0 +1,11 @@
+$kind: http-request
+name: http://localhost:8080/api/compras/f3f199c2-5b80-4a2e-834f-e6e0bf97dabb/confirmar-pago
+description: ""
+url: http://localhost:8080/api/compras/f3f199c2-5b80-4a2e-834f-e6e0bf97dabb/confirmar-pago
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{ "medioPago": "TARJETA", "monto": 30000.00 }'
+order: 5000

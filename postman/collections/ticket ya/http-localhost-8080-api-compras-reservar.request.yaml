@@ -1,0 +1,11 @@
+$kind: http-request
+name: http://localhost:8080/api/compras/reservar
+description: ""
+url: http://localhost:8080/api/compras/reservar
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{ "clienteId": "CLI-1234", "eventoId": "6af366aec88eb1d03509548e", "items": [ { "sectorId": "SEC-PLATEA-A", "fila": "1", "asiento": 1 } ] }'
+order: 6000

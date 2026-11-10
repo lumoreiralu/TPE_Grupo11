@@ -1,0 +1,11 @@
+$kind: http-request
+name: http://localhost:8080/api/eventos
+description: ""
+url: http://localhost:8080/api/eventos
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: '{ "nombre": "Recital TicketYa Tour", "descripcion": "Gran show en vivo", "tipo": "RECITAL", "organizadorId": "ORG-101", "participantes": ["Artista A", "Banda B"], "fechaHora": "2026-12-15T21:00:00", "lugarId": "6af36183c88eb1d03509548c", "preciosSectores": [ { "sectorId": "SEC-PLATEA-A", "precio": 30000.00 }, { "sectorId": "SEC-CAMPO", "precio": 15000.00 } ] }'
+order: 3000
