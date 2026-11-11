@@ -1,0 +1,316 @@
+
+openapi: 3.0.3
+
+info:
+  title: TicketYa API - Core de Compra de Entradas
+  description: |
+    Documentación OpenAPI de la plataforma de venta de entradas para eventos TicketYa.
+    Todas las rutas son consumidas a través del API Gateway único en el puerto 8080.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: API Gateway (Entorno Local)
+
+paths:
+
+  # ==========================================
+  # LUGARES Y RECINTOS
+  # ==========================================
+
+  /api/lugares:
+    post:
+      summary: Crear un nuevo lugar o recinto
+      description: Registra un lugar con su capacidad, distribución y sectores (numerados o campo general).
+      tags:
+        - Lugares
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              nombre: "Estadio TicketYa"
+              direccion: "Av. Principal 123"
+              ciudad: "Montevideo"
+              ubicacion:
+                latitud: -34.9011
+                longitud: -56.1645
+              sectores:
+                - sectorId: "SEC-PLATEA-A"
+                  nombre: "Platea Preferencial"
+                  tipo: "NUMERADO"
+                  filas:
+                    - fila: "1"
+                      asientos: [1, 2, 3, 4]
+                - sectorId: "SEC-CAMPO"
+                  nombre: "Campo General"
+                  tipo: "CAPACIDAD_GENERAL"
+                  capacidadMaxima: 5000
+      responses:
+        "201":
+          description: Lugar creado exitosamente.
+        "400":
+          description: Datos inválidos o incompletos.
+
+    get:
+      summary: Listar todos los lugares
+      tags:
+        - Lugares
+      responses:
+        "200":
+          description: Listado de recintos registrados.
+
+  # ==========================================
+  # EVENTOS
+  # ==========================================
+
+  /api/eventos:
+    post:
+      summary: Crear un evento en borrador
+      tags:
+        - Eventos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              nombre: "Recital TicketYa Tour"
+              descripcion: "Noche de música en vivo."
+              tipoEvento: "RECITAL"
+              organizadorId: "ORG-101"
+              participantes:
+                - "Artista A"
+                - "Banda B"
+              fechaHora: "2027-12-15T21:00:00"
+              lugarId: "662e0f..."
+              ciudad: "Montevideo"
+              preciosSectores:
+                - idSector: "SEC-PLATEA-A"
+                  precio: 30000.00
+                - idSector: "SEC-CAMPO"
+                  precio: 15000.00
+      responses:
+        "201":
+          description: Evento registrado en estado BORRADOR.
+        "400":
+          description: Error en los datos del evento o fecha pasada.
+
+  /api/eventos/{id}/publicar:
+    put:
+      summary: Publicar un evento para habilitar la venta
+      tags:
+        - Eventos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Evento publicado con éxito.
+        "404":
+          description: Evento no encontrado.
+        "422":
+          description: El evento no tiene precios configurados o son menores o iguales a cero.
+
+  /api/eventos/buscar:
+    get:
+      summary: Búsqueda multicriterio de eventos publicados
+      tags:
+        - Eventos
+      parameters:
+        - name: tipo
+          in: query
+          schema:
+            type: string
+            enum:
+              - RECITAL
+              - TEATRO
+              - DEPORTE
+              - CONFERENCIA
+
+        - name: ciudad
+          in: query
+          schema:
+            type: string
+
+        - name: artista
+          in: query
+          schema:
+            type: string
+
+        - name: organizadorId
+          in: query
+          schema:
+            type: string
+
+        - name: fechaDesde
+          in: query
+          schema:
+            type: string
+            format: date
+            example: "2027-12-01"
+
+        - name: fechaHasta
+          in: query
+          schema:
+            type: string
+            format: date
+            example: "2027-12-31"
+
+      responses:
+        "200":
+          description: Listado de eventos que coinciden con los filtros.
+
+  # ==========================================
+  # COMPRAS Y RESERVAS (CONCURRENCIA)
+  # ==========================================
+
+  /api/compras/reservar:
+    post:
+      summary: Reservar asientos temporalmente (10 minutos)
+      description: Bloquea los asientos seleccionados con soporte de idempotencia y control de concurrencia.
+      tags:
+        - Compras
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            example: "demo-001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              clienteId: "CLI-1234"
+              eventoId: "EVT-123"
+              items:
+                - sectorId: "SEC-PLATEA-A"
+                  fila: "1"
+                  asiento: 1
+      responses:
+        "201":
+          description: Reserva temporal creada con éxito.
+          content:
+            application/json:
+              example:
+                ordenId: "f81d4fae-7dec-11d0-a765-00a0c91e6bf6"
+                estado: "RESERVADA_TEMPORAL"
+                expiraEn: "2027-12-15T21:10:00"
+                montoTotal: 30000.00
+                segundosRestantes: 600
+
+        "400":
+          description: Supera el límite de entradas permitidas por persona (máx 4).
+
+        "404":
+          description: Evento no encontrado o no publicado.
+
+        "409":
+          description: Conflicto - Uno o más asientos ya se encuentran reservados o vendidos.
+
+  /api/compras/{id}/confirmar-pago:
+    post:
+      summary: Confirmar pago de orden reservada y emitir entradas
+      tags:
+        - Compras
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            example:
+              metodoPago: "TARJETA"
+      responses:
+        "200":
+          description: Pago procesado y entradas emitidas exitosamente.
+
+        "402":
+          description: Pago rechazado por la pasarela (fondos insuficientes o datos inválidos).
+
+        "409":
+          description: Conflicto - La reserva temporal ha expirado (+10 min).
+
+  # ==========================================
+  # ENTRADAS Y DEVOLUCIONES
+  # ==========================================
+
+  /api/entradas/orden/{ordenCompraId}:
+    get:
+      summary: Consultar entradas de una orden de compra
+      tags:
+        - Entradas
+      parameters:
+        - name: ordenCompraId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Listado de entradas con su respectivo código QR hash.
+
+  /api/entradas/{id}/devolucion:
+    post:
+      summary: Solicitar devolución de una entrada (Regla de las 72 hs)
+      tags:
+        - Entradas
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+
+        - name: clienteId
+          in: query
+          required: true
+          schema:
+            type: string
+
+        - name: motivo
+          in: query
+          required: false
+          schema:
+            type: string
+
+      responses:
+        "201":
+          description: Solicitud de devolución registrada en estado PENDIENTE.
+
+        "400":
+          description: No permitido - Faltan menos de 72 horas para el inicio del evento o la entrada no está EMITIDA.
+
+        "403":
+          description: Prohibido - La entrada no pertenece al cliente solicitante.
+
+        "409":
+          description: Ya existe una solicitud en trámite para esta entrada.
+
+  /api/entradas/devoluciones/{solicitudId}/aprobar:
+    post:
+      summary: Aprobar devolución, cancelar ticket, liberar asiento y reintegrar
+      tags:
+        - Entradas
+      parameters:
+        - name: solicitudId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Devolución aprobada, asiento liberado y orden de reintegro enviada a la pasarela.
+
+        "400":
+          description: La solicitud ya fue procesada anteriormente.
