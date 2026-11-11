@@ -2,6 +2,7 @@ package com.ticketya.entradas.service;
 
 import com.ticketya.entradas.client.ComprasClient;
 import com.ticketya.entradas.client.EventosClient;
+import com.ticketya.entradas.client.PasarelaClient;
 import com.ticketya.entradas.dto.EmisionEntradasRequest;
 import com.ticketya.entradas.dto.EmisionEntradasResponse;
 import com.ticketya.entradas.dto.EntradaResponseDTO;
@@ -30,13 +31,15 @@ public class EntradaService {
     private final SolicitudDevolucionRepository solicitudRepo;
     private final ComprasClient comprasClient;
     private final EventosClient eventosClient;
+    private final PasarelaClient pasarelaClient;
 
-    public EntradaService(EntradaRepository entradaRepository, QrCodeGenerator qrCodeGenerator, SolicitudDevolucionRepository solicitudRepo, ComprasClient comprasClient, EventosClient eventosClient) {
+    public EntradaService(EntradaRepository entradaRepository, QrCodeGenerator qrCodeGenerator, SolicitudDevolucionRepository solicitudRepo, ComprasClient comprasClient, EventosClient eventosClient, PasarelaClient pasarelaClient) {
         this.entradaRepository = entradaRepository;
         this.qrCodeGenerator = qrCodeGenerator;
         this.solicitudRepo = solicitudRepo;
         this.comprasClient = comprasClient;
         this.eventosClient = eventosClient;
+        this.pasarelaClient = pasarelaClient;
     }
 
     @Transactional
@@ -88,6 +91,13 @@ public class EntradaService {
                 .toList();
     }
 
+    public List<EntradaResponseDTO> obtenerPorCliente(String clienteId) {
+        return entradaRepository.findByClienteId(clienteId)
+                .stream()
+                .map(this::toDTO)
+                .toList();
+    }
+
     private EntradaResponseDTO toDTO(Entrada entrada) {
         return new EntradaResponseDTO(
                 entrada.getId(),
@@ -119,7 +129,7 @@ public class EntradaService {
         }
 
         // Ya existe una solicitud pendiente?
-        if (solicitudRepo.finByEntradaIdAndEstado(entradaId, EstadoSolicitudDevolucion.PENDIENTE).isPresent()) {
+        if (solicitudRepo.findByEntradaIdAndEstado(entradaId, EstadoSolicitudDevolucion.PENDIENTE).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una solicitud de devolución en trámite");
         }
 
@@ -158,7 +168,10 @@ public class EntradaService {
         // B. Liberamos el asiento en compras-service
         comprasClient.liberarAsiento(entrada.getEventoId(), entrada.getSectorNombre(), entrada.getFila(), entrada.getAsiento());
 
-        // C. Actualizamos la solicitud
+        // C. Solicitamos el reembolso a la pasarela
+        pasarelaClient.solicitarReembolso(entrada.getOrdenCompraId(), entrada.getClienteId());
+
+        // D. Actualizamos la solicitud
         solicitud.setEstado(EstadoSolicitudDevolucion.APROBADA);
         solicitud.setFechaResolucion(LocalDateTime.now());
         solicitud.setRespuestaAdmin(respuestaAdmin);
@@ -169,7 +182,7 @@ public class EntradaService {
     // 3. CANCELACIÓN MASIVA POR EVENTO CANCELADO
     @Transactional
     public int cancelarEntradasPorEvento(String eventoId) {
-        List<Entrada> activas = entradaRepository.finByEventoIdAndEstadoNot(eventoId, EstadoEntrada.CANCELADA);
+        List<Entrada> activas = entradaRepository.findByEventoIdAndEstadoNot(eventoId, EstadoEntrada.CANCELADA);
         for (Entrada entrada : activas) {
             entrada.setEstado(EstadoEntrada.CANCELADA);
             comprasClient.liberarAsiento(entrada.getEventoId(), entrada.getSectorNombre(), entrada.getFila(), entrada.getAsiento());

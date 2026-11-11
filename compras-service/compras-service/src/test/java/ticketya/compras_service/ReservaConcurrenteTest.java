@@ -1,6 +1,5 @@
 package ticketya.compras_service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,10 +16,7 @@ import ticketya.compras_service.client.EventoDTO;
 import ticketya.compras_service.client.EventoDTO.PrecioSectorDTO;
 
 import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -29,19 +25,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
 @AutoConfigureMockMvc
 class ReservaConcurrenteTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     // Usamos @MockitoBean estándar de Spring Boot 3+ (reemplaza al viejo @MockBean)
     @MockitoBean
@@ -55,7 +49,11 @@ class ReservaConcurrenteTest {
         String filaPrueba = "1";
         int asientoPrueba = 25;
 
-        EventoDTO eventoMock = new EventoDTO(eventoIdPrueba, "PUBLICADO", List.of(new PrecioSectorDTO(sectorIdPrueba, new BigDecimal("30000.00"))));
+        EventoDTO eventoMock = new EventoDTO(
+                eventoIdPrueba,
+                "PUBLICADO",
+                List.of(new PrecioSectorDTO(sectorIdPrueba, new BigDecimal("30000.00"))),
+                List.of(new EventoDTO.SectorInfoDTO(sectorIdPrueba, "Platea Numerada", "NUMERADO", 100)));
         when(eventosClient.obtenerEvento(anyString())).thenReturn(eventoMock);
 
         int cantidadHilos = 20;
@@ -72,20 +70,16 @@ class ReservaConcurrenteTest {
             executor.submit(() -> {
                 try {
                     disparo.await();
-                    Map<String, Object> item = new HashMap<>();
-                    item.put("sectorId", sectorIdPrueba);
-                    item.put("fila", filaPrueba);
-                    item.put("asiento", asientoPrueba);
-
-                    Map<String, Object> requestBody = new HashMap<>();
-                    requestBody.put("clienteId", clienteId);
-                    requestBody.put("eventoId", eventoIdPrueba);
-                    requestBody.put("items", Collections.singletonList(item));
-
-                    String jsonBody = objectMapper.writeValueAsString(requestBody);
+                    String jsonBody = """
+                            {
+                              "clienteId": "%s",
+                              "eventoId": "%s",
+                              "items": [{"sectorId": "%s", "fila": "%s", "asiento": %d}]
+                            }
+                            """.formatted(clienteId, eventoIdPrueba, sectorIdPrueba, filaPrueba, asientoPrueba);
 
                     MvcResult result = mockMvc.perform(
-                            post("/api/compras/reservas")
+                            post("/api/compras/reservar")
                                     .contentType(MediaType.APPLICATION_JSON)
                                     .content(jsonBody)
                     ).andReturn();
@@ -105,7 +99,7 @@ class ReservaConcurrenteTest {
         }
 
         disparo.countDown();
-        fin.await(15, TimeUnit.SECONDS);
+        assertTrue(fin.await(60, TimeUnit.SECONDS), "Las reservas concurrentes no terminaron a tiempo");
         executor.shutdown();
 
         System.out.println(">>> RESULTADOS DEL TEST DE CONCURRENCIA <<<");

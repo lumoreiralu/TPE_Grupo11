@@ -1,0 +1,1792 @@
+{
+  "info": {
+    "_postman_id": "8f4d9c2a-6b1e-4c3f-9a7d-2e5b8c1f0a64",
+    "name": "TicketYa API",
+    "description": "Colección autoejecutable para TicketYa. Ejecutar las carpetas en orden con Collection Runner. Crea el lugar y el evento de prueba, captura los IDs y recorre el flujo de reserva, pago y emisión de entradas. Incluye casos de error y la pasarela mock.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "00 - Catálogo y datos de prueba",
+      "item": [
+        {
+          "name": "Crear lugar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('lugarId', body.id);",
+                  "pm.test('Devuelve el lugar creado', function () {",
+                  "  pm.expect(body.id).to.be.a('string');",
+                  "  pm.expect(body.id.length).to.be.greaterThan(0);",
+                  "  pm.expect(body.ciudad).to.eql('Montevideo');",
+                  "  pm.expect(body.sectores).to.be.an('array').with.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\":\"Estadio TicketYa\",\"direccion\":\"Av. Principal 123\",\"ciudad\":\"Montevideo\",\"ubicacion\":{\"latitud\":-34.9011,\"longitud\":-56.1645},\"sectores\":[{\"sectorId\":\"SEC-PLATEA-A\",\"nombre\":\"Platea Preferencial\",\"tipo\":\"NUMERADO\",\"filas\":[{\"fila\":\"1\",\"asientos\":[1,2,3,4,5,6,7,8]},{\"fila\":\"2\",\"asientos\":[1,2,3,4,5,6,7,8]}]},{\"sectorId\":\"SEC-CAMPO\",\"nombre\":\"Campo General\",\"tipo\":\"CAPACIDAD_GENERAL\",\"capacidadMaxima\":5000}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/lugares",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lugares"
+              ]
+            },
+            "description": "Crea el lugar de prueba con un sector numerado y un sector de capacidad general. Guarda lugarId."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar lugares",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Devuelve un arreglo de lugares', function () {",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/lugares",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lugares"
+              ]
+            },
+            "description": "Lista todos los lugares."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener lugar por ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve el lugar solicitado', function () {",
+                  "  pm.expect(body.id).to.eql(pm.collectionVariables.get('lugarId'));",
+                  "  pm.expect(body.nombre).to.eql('Estadio TicketYa');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/lugares/{{lugarId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lugares",
+                "{{lugarId}}"
+              ]
+            },
+            "description": "Obtiene el lugar creado usando la variable lugarId."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear evento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('eventoId', body.id);",
+                  "pm.test('Evento en borrador con precios por sector', function () {",
+                  "  pm.expect(body.id).to.be.a('string');",
+                  "  pm.expect(body.estado).to.eql('BORRADOR');",
+                  "  pm.expect(body.preciosSectores).to.be.an('array').with.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\":\"Recital TicketYa Tour\",\"descripcion\":\"Una noche de musica en vivo.\",\"tipoEvento\":\"RECITAL\",\"organizadorId\":\"{{organizadorId}}\",\"participantes\":[\"Artista A\",\"Banda B\"],\"fechaHora\":\"{{eventoFecha}}\",\"lugarId\":\"{{lugarId}}\",\"ciudad\":\"Montevideo\",\"preciosSectores\":[{\"idSector\":\"{{sectorNumerado}}\",\"precio\":30000},{\"idSector\":\"{{sectorGeneral}}\",\"precio\":15000}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ]
+            },
+            "description": "Crea el evento de prueba en estado BORRADOR. Guarda eventoId."
+          },
+          "response": []
+        },
+        {
+          "name": "Listar eventos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Incluye el evento creado', function () {",
+                  "  const ids = body.map(function (evento) { return evento.id; });",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get('eventoId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ]
+            },
+            "description": "Lista todos los eventos, incluidos los borradores."
+          },
+          "response": []
+        },
+        {
+          "name": "Publicar evento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Evento publicado', function () {",
+                  "  pm.expect(body.estado).to.eql('PUBLICADO');",
+                  "  pm.expect(body.preciosSectores).to.be.an('array').with.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/publicar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoId}}",
+                "publicar"
+              ]
+            },
+            "description": "Publica el evento para que aparezca en la cartelera y pueda reservarse."
+          },
+          "response": []
+        },
+        {
+          "name": "Buscar eventos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Encuentra el evento publicado', function () {",
+                  "  const ids = body.map(function (evento) { return evento.id; });",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get('eventoId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/buscar?tipo=RECITAL&organizadorId={{organizadorId}}&artista=Artista&ciudad=Montevideo&fechaDesde=2027-12-01&fechaHasta=2027-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "buscar"
+              ],
+              "query": [
+                {
+                  "key": "tipo",
+                  "value": "RECITAL"
+                },
+                {
+                  "key": "organizadorId",
+                  "value": "{{organizadorId}}"
+                },
+                {
+                  "key": "artista",
+                  "value": "Artista"
+                },
+                {
+                  "key": "ciudad",
+                  "value": "Montevideo"
+                },
+                {
+                  "key": "fechaDesde",
+                  "value": "2027-12-01"
+                },
+                {
+                  "key": "fechaHasta",
+                  "value": "2027-12-31"
+                }
+              ]
+            },
+            "description": "Busca el evento publicado con todos los filtros disponibles."
+          },
+          "response": []
+        },
+        {
+          "name": "Eventos publicados",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Incluye el evento publicado', function () {",
+                  "  const ids = body.map(function (evento) { return evento.id; });",
+                  "  pm.expect(ids).to.include(pm.collectionVariables.get('eventoId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/publicados",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "publicados"
+              ]
+            },
+            "description": "Lista los eventos que el frontend muestra en la cartelera."
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener evento por ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve el evento solicitado', function () {",
+                  "  pm.expect(body.id).to.eql(pm.collectionVariables.get('eventoId'));",
+                  "  pm.expect(body.nombre).to.eql('Recital TicketYa Tour');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoId}}"
+              ]
+            },
+            "description": "Obtiene el evento creado usando la variable eventoId."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "01 - Flujo de compra",
+      "item": [
+        {
+          "name": "Reservar 2 asientos",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('ordenId', body.ordenId);",
+                  "pm.test('Reserva temporal de 2 entradas', function () {",
+                  "  pm.expect(body.estado).to.eql('RESERVADA_TEMPORAL');",
+                  "  pm.expect(Number(body.montoTotal)).to.eql(60000);",
+                  "  pm.expect(Number(body.segundosRestantes)).to.be.at.least(1);",
+                  "  pm.expect(Number(body.segundosRestantes)).to.be.at.most(600);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteId\":\"{{clienteId}}\",\"eventoId\":\"{{eventoId}}\",\"items\":[{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":1},{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":2}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/reservar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "reservar"
+              ]
+            },
+            "description": "Reserva los asientos 1 y 2 de la fila 1. Genera una Idempotency-Key nueva y guarda ordenId."
+          },
+          "response": []
+        },
+        {
+          "name": "Reintento idempotente",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('idempotencyKey')) {",
+                  "  pm.collectionVariables.set('idempotencyKey', pm.variables.replaceIn('{{$guid}}'));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Devuelve la misma orden', function () {",
+                  "  pm.expect(body.ordenId).to.eql(pm.collectionVariables.get('ordenId'));",
+                  "});",
+                  "pm.test('No duplica la reserva', function () {",
+                  "  pm.expect(body.estado).to.eql('RESERVADA_TEMPORAL');",
+                  "  pm.expect(Number(body.montoTotal)).to.eql(60000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{idempotencyKey}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteId\":\"{{clienteId}}\",\"eventoId\":\"{{eventoId}}\",\"items\":[{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":1},{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":2}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/reservar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "reservar"
+              ]
+            },
+            "description": "Repite la reserva con la misma Idempotency-Key. Debe devolver la misma orden."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar orden reservada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Orden en reserva temporal', function () {",
+                  "  pm.expect(body.ordenId).to.eql(pm.collectionVariables.get('ordenId'));",
+                  "  pm.expect(body.estado).to.eql('RESERVADA_TEMPORAL');",
+                  "  pm.expect(Number(body.montoTotal)).to.eql(60000);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/{{ordenId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "{{ordenId}}"
+              ]
+            },
+            "description": "Consulta el estado de la orden antes de pagar."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar pago aprobado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('transaccionPagoId', body.transaccionPagoId);",
+                  "if (body.entradas && body.entradas.length > 0) {",
+                  "  pm.collectionVariables.set('entradaId', body.entradas[0].id);",
+                  "  pm.collectionVariables.set('qrHash', body.entradas[0].codigoQrHash);",
+                  "}",
+                  "pm.test('Compra completada con 2 entradas', function () {",
+                  "  pm.expect(body.estado).to.eql('COMPLETADA');",
+                  "  pm.expect(body.entradas).to.be.an('array').with.lengthOf(2);",
+                  "  pm.expect(body.entradas[0].codigoQrHash).to.have.lengthOf(64);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"metodoPago\":\"TARJETA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/{{ordenId}}/confirmar-pago",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "{{ordenId}}",
+                "confirmar-pago"
+              ]
+            },
+            "description": "Confirma el pago con la pasarela mock y emite las entradas."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar pago repetido",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('No vuelve a cobrar ni duplica entradas', function () {",
+                  "  pm.expect(body.estado).to.eql('COMPLETADA');",
+                  "  pm.expect(body.transaccionPagoId).to.eql(pm.collectionVariables.get('transaccionPagoId'));",
+                  "  pm.expect(body.entradas).to.be.an('array').with.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"metodoPago\":\"TARJETA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/{{ordenId}}/confirmar-pago",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "{{ordenId}}",
+                "confirmar-pago"
+              ]
+            },
+            "description": "Repite la confirmación de una orden completada. Debe ser idempotente."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar orden completada",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Orden completada', function () {",
+                  "  pm.expect(body.ordenId).to.eql(pm.collectionVariables.get('ordenId'));",
+                  "  pm.expect(body.estado).to.eql('COMPLETADA');",
+                  "  pm.expect(body.transaccionPagoId).to.eql(pm.collectionVariables.get('transaccionPagoId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/{{ordenId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "{{ordenId}}"
+              ]
+            },
+            "description": "Consulta la orden después de completar el pago."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 - Entradas",
+      "item": [
+        {
+          "name": "Entradas por orden",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Dos entradas emitidas para la orden', function () {",
+                  "  pm.expect(body).to.be.an('array').with.lengthOf(2);",
+                  "  pm.expect(body[0].ordenCompraId).to.eql(pm.collectionVariables.get('ordenId'));",
+                  "  pm.expect(body[0].codigoQrHash).to.have.lengthOf(64);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/entradas/orden/{{ordenId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "entradas",
+                "orden",
+                "{{ordenId}}"
+              ]
+            },
+            "description": "Lista las entradas emitidas para la orden del flujo principal."
+          },
+          "response": []
+        },
+        {
+          "name": "Entradas por cliente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Incluye la orden del flujo principal', function () {",
+                  "  const ordenes = body.map(function (entrada) { return entrada.ordenCompraId; });",
+                  "  pm.expect(ordenes).to.include(pm.collectionVariables.get('ordenId'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/entradas/cliente/{{clienteId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "entradas",
+                "cliente",
+                "{{clienteId}}"
+              ]
+            },
+            "description": "Lista todas las entradas del cliente CLI-1234."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 - Pasarela mock",
+      "item": [
+        {
+          "name": "Pago aprobado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('pagoTransaccionId', body.transaccionId);",
+                  "pm.test('Pago aprobado', function () {",
+                  "  pm.expect(body.estado).to.eql('APROBADO');",
+                  "  pm.expect(body.transaccionId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"monto\":30000,\"ordenId\":\"DEMO-PAGO\",\"metodoPago\":\"TARJETA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/procesar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "procesar"
+              ]
+            },
+            "description": "Prueba directa de la pasarela con un pago aprobado."
+          },
+          "response": []
+        },
+        {
+          "name": "Pago rechazado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Pago rechazado por fondos', function () {",
+                  "  pm.expect(body.estado).to.eql('RECHAZADO');",
+                  "  pm.expect(body.mensaje).to.include('fondos');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"monto\":30000,\"ordenId\":\"DEMO-RECHAZO\",\"metodoPago\":\"RECHAZADA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/procesar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "procesar"
+              ]
+            },
+            "description": "Prueba directa de un pago rechazado por la pasarela."
+          },
+          "response": []
+        },
+        {
+          "name": "Pago con error tecnico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('500 Internal Server Error', function () {",
+                  "  pm.response.to.have.status(500);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"monto\":30000,\"ordenId\":\"DEMO-ERROR\",\"metodoPago\":\"ERROR\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/procesar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "procesar"
+              ]
+            },
+            "description": "Simula un error interno de la red de pagos."
+          },
+          "response": []
+        },
+        {
+          "name": "Pago con tarjeta invalida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Pago rechazado por tarjeta invalida', function () {",
+                  "  pm.expect(body.estado).to.eql('RECHAZADO');",
+                  "  pm.expect(body.mensaje).to.include('tarjeta');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"monto\":30000,\"ordenId\":\"DEMO-INVALIDA\",\"metodoPago\":\"INVALIDA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/procesar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "procesar"
+              ]
+            },
+            "description": "Simula una tarjeta inválida o vencida."
+          },
+          "response": []
+        },
+        {
+          "name": "Reembolso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Reembolso procesado', function () {",
+                  "  pm.expect(body.estado).to.eql('REEMBOLSADO');",
+                  "  pm.expect(body.reembolsoId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"transaccionId\":\"{{pagoTransaccionId}}\",\"monto\":30000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/pagos/reembolsar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "pagos",
+                "reembolsar"
+              ]
+            },
+            "description": "Reembolsa la transacción aprobada en la request anterior."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "04 - Casos de error",
+      "item": [
+        {
+          "name": "Crear evento sin precios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('eventoSinPreciosId', body.id);",
+                  "pm.test('Evento sin precios en borrador', function () {",
+                  "  pm.expect(body.estado).to.eql('BORRADOR');",
+                  "  pm.expect(body.preciosSectores).to.be.oneOf([null, undefined]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\":\"Evento sin precios\",\"descripcion\":\"Evento para probar la validacion de publicacion.\",\"tipoEvento\":\"TEATRO\",\"organizadorId\":\"{{organizadorId}}\",\"participantes\":[\"Artista A\"],\"fechaHora\":\"{{eventoFecha}}\",\"lugarId\":\"{{lugarId}}\",\"ciudad\":\"Montevideo\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ]
+            },
+            "description": "Crea un evento sin precios para probar la validación de publicación."
+          },
+          "response": []
+        },
+        {
+          "name": "Publicar sin precios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Explica que faltan precios', function () {",
+                  "  pm.expect(body.mensaje).to.include('precios');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoSinPreciosId}}/publicar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoSinPreciosId}}",
+                "publicar"
+              ]
+            },
+            "description": "Intenta publicar un evento sin precios. Debe fallar con 422."
+          },
+          "response": []
+        },
+        {
+          "name": "Crear evento borrador",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('eventoBorradorId', body.id);",
+                  "pm.test('Evento en borrador', function () {",
+                  "  pm.expect(body.estado).to.eql('BORRADOR');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"nombre\":\"Evento Borrador TicketYa\",\"descripcion\":\"Evento para probar la reserva de un evento no publicado.\",\"tipoEvento\":\"TEATRO\",\"organizadorId\":\"{{organizadorId}}\",\"participantes\":[\"Artista A\"],\"fechaHora\":\"{{eventoFecha}}\",\"lugarId\":\"{{lugarId}}\",\"ciudad\":\"Montevideo\",\"preciosSectores\":[{\"idSector\":\"{{sectorNumerado}}\",\"precio\":10000}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos"
+              ]
+            },
+            "description": "Crea un evento con precios pero sin publicar. Guarda eventoBorradorId."
+          },
+          "response": []
+        },
+        {
+          "name": "Reservar evento no publicado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Explica que el evento no esta publicado', function () {",
+                  "  pm.expect(body.mensaje).to.include('no esta publicado');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteId\":\"CLI-ERROR\",\"eventoId\":\"{{eventoBorradorId}}\",\"items\":[{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":1}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/reservar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "reservar"
+              ]
+            },
+            "description": "Intenta reservar un evento que sigue en BORRADOR."
+          },
+          "response": []
+        },
+        {
+          "name": "Reservar asiento ya tomado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Explica que el asiento no esta disponible', function () {",
+                  "  pm.expect(body.mensaje).to.include('ya no esta disponible');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteId\":\"CLI-OTRO\",\"eventoId\":\"{{eventoId}}\",\"items\":[{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":1}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/reservar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "reservar"
+              ]
+            },
+            "description": "Intenta reservar el asiento 1, que ya fue vendido en el flujo principal."
+          },
+          "response": []
+        },
+        {
+          "name": "Superar limite de entradas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Explica el limite de 4 entradas', function () {",
+                  "  pm.expect(body.mensaje).to.include('maximo de 4');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteId\":\"{{clienteId}}\",\"eventoId\":\"{{eventoId}}\",\"items\":[{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":3},{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":4},{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":5},{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":6},{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":7}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/reservar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "reservar"
+              ]
+            },
+            "description": "Intenta reservar 5 entradas para un cliente que ya tiene 2. Supera el límite de 4."
+          },
+          "response": []
+        },
+        {
+          "name": "Reservar asiento para pago rechazado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('ordenRechazoId', body.ordenId);",
+                  "pm.test('Reserva para el caso de pago rechazado', function () {",
+                  "  pm.expect(body.estado).to.eql('RESERVADA_TEMPORAL');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"clienteId\":\"CLI-RECHAZO\",\"eventoId\":\"{{eventoId}}\",\"items\":[{\"sectorId\":\"{{sectorNumerado}}\",\"fila\":\"{{fila}}\",\"asiento\":8}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/reservar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "reservar"
+              ]
+            },
+            "description": "Reserva el asiento 8 para probar el rechazo de pago completo."
+          },
+          "response": []
+        },
+        {
+          "name": "Confirmar pago rechazado",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('402 Payment Required', function () {",
+                  "  pm.response.to.have.status(402);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Explica el rechazo', function () {",
+                  "  pm.expect(body.mensaje).to.include('rechazado');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"metodoPago\":\"RECHAZADA\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/{{ordenRechazoId}}/confirmar-pago",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "{{ordenRechazoId}}",
+                "confirmar-pago"
+              ]
+            },
+            "description": "Confirma una orden con un método de pago que la pasarela rechaza."
+          },
+          "response": []
+        },
+        {
+          "name": "Consultar orden inexistente",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404 Not Found', function () {",
+                  "  pm.response.to.have.status(404);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Explica que la orden no existe', function () {",
+                  "  pm.expect(body.mensaje).to.include('no existe');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/00000000-0000-0000-0000-000000000000",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "00000000-0000-0000-0000-000000000000"
+              ]
+            },
+            "description": "Consulta una orden que no existe."
+          },
+          "response": []
+        },
+        {
+          "name": "Reservar sin datos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 Bad Request', function () {",
+                  "  pm.response.to.have.status(400);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Explica los campos requeridos', function () {",
+                  "  pm.expect(body.mensaje).to.include('clienteId');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "{{$guid}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/compras/reservar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "compras",
+                "reservar"
+              ]
+            },
+            "description": "Intenta reservar sin clienteId, eventoId ni items."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "05 - Endpoint interno (opcional)",
+      "item": [
+        {
+          "name": "Emitir entradas (interno)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('demoOrdenId', 'DEMO-' + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Emite una entrada para la orden demo', function () {",
+                  "  pm.expect(body.ordenCompraId).to.eql(pm.collectionVariables.get('demoOrdenId'));",
+                  "  pm.expect(body.entradas).to.be.an('array').with.lengthOf(1);",
+                  "  pm.expect(body.entradas[0].codigoQrHash).to.have.lengthOf(64);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"ordenCompraId\":\"{{demoOrdenId}}\",\"clienteId\":\"CLI-DEMO-INTERNO\",\"eventoId\":\"{{eventoId}}\",\"asientos\":[{\"sectorNombre\":\"{{sectorNumerado}}\",\"fila\":\"9\",\"asiento\":1}]}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/entradas/emitir",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "entradas",
+                "emitir"
+              ]
+            },
+            "description": "Endpoint interno para emitir entradas sin pasar por compras. No forma parte del flujo principal."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "clienteId",
+      "value": "CLI-1234",
+      "type": "string"
+    },
+    {
+      "key": "organizadorId",
+      "value": "ORG-101",
+      "type": "string"
+    },
+    {
+      "key": "eventoFecha",
+      "value": "2027-12-15T21:00:00",
+      "type": "string"
+    },
+    {
+      "key": "sectorNumerado",
+      "value": "SEC-PLATEA-A",
+      "type": "string"
+    },
+    {
+      "key": "sectorGeneral",
+      "value": "SEC-CAMPO",
+      "type": "string"
+    },
+    {
+      "key": "fila",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "idempotencyKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "lugarId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventoSinPreciosId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "eventoBorradorId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ordenId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ordenRechazoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "transaccionPagoId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "pagoTransaccionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "entradaId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "qrHash",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "demoOrdenId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

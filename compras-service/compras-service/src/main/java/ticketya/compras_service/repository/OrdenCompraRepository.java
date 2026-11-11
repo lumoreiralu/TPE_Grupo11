@@ -1,5 +1,6 @@
 package ticketya.compras_service.repository;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import ticketya.compras_service.model.EstadoOrden;
 import ticketya.compras_service.model.OrdenCompra;
@@ -14,6 +15,10 @@ import java.util.UUID;
 public interface OrdenCompraRepository extends JpaRepository<OrdenCompra, UUID> {
 
     Optional<OrdenCompra> findByIdempotencyKey(String idempotencyKey);
+
+    @EntityGraph(attributePaths = "detalles")
+    @Query("select o from OrdenCompra o where o.id = :id")
+    Optional<OrdenCompra> findByIdConDetalles(@Param("id") UUID id);
 
     List<OrdenCompra> findByEstadoAndFechaExpiracionReservaBefore(EstadoOrden estado, LocalDateTime ahora);
 

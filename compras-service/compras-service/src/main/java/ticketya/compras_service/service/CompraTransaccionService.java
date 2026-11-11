@@ -3,8 +3,11 @@ package ticketya.compras_service.service;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import ticketya.compras_service.exception.NegocioException;
 import ticketya.compras_service.model.*;
 import ticketya.compras_service.repository.BloqueoAsientoRepository;
@@ -23,27 +26,32 @@ public class CompraTransaccionService {
     private final OrdenCompraRepository ordenRepo;
     private final BloqueoAsientoRepository bloqueoRepo;
     private final CupoSectorRepository cupoSectorRepo;
+    private final TransactionTemplate insertCupoTx;
 
     public CompraTransaccionService(OrdenCompraRepository ordenRepo,
                                   BloqueoAsientoRepository bloqueoRepo,
-                                  CupoSectorRepository cupoSectorRepo) {
+                                  CupoSectorRepository cupoSectorRepo,
+                                  PlatformTransactionManager transactionManager) {
         this.ordenRepo = ordenRepo;
         this.bloqueoRepo = bloqueoRepo;
         this.cupoSectorRepo = cupoSectorRepo;
+        this.insertCupoTx = new TransactionTemplate(transactionManager);
+        this.insertCupoTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     @Transactional(readOnly = true)
     public OrdenCompra obtenerOrden(UUID ordenId) {
-        return ordenRepo.findById(ordenId)
+        return ordenRepo.findByIdConDetalles(ordenId)
                 .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "La orden " + ordenId + " no existe"));
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void asegurarCupoSector(String eventoId, String sectorId, int capacidadTotal) {
         if (cupoSectorRepo.findByEventoIdAndSectorId(eventoId, sectorId).isEmpty()) {
             try {
-                CupoSector cupo = new CupoSector(eventoId, sectorId, capacidadTotal, capacidadTotal);
-                cupoSectorRepo.saveAndFlush(cupo);
+                insertCupoTx.executeWithoutResult(status -> {
+                    CupoSector cupo = new CupoSector(eventoId, sectorId, capacidadTotal, capacidadTotal);
+                    cupoSectorRepo.saveAndFlush(cupo);
+                });
             } catch (DataIntegrityViolationException ignored) {
                 // Ya fue insertado concurrentemente por otra transacción
             }
@@ -52,7 +60,7 @@ public class CompraTransaccionService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public OrdenCompra iniciarProcesamientoPago(UUID ordenId) {
-        OrdenCompra orden = ordenRepo.findById(ordenId)
+        OrdenCompra orden = ordenRepo.findByIdConDetalles(ordenId)
                 .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "La orden " + ordenId + " no existe"));
 
         if (orden.getEstado() == EstadoOrden.COMPLETADA || orden.getEstado() == EstadoOrden.PAGO_CONFIRMADO) {

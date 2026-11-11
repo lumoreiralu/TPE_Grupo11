@@ -10,6 +10,7 @@ import ticketya.compras_service.client.EmisionResponse.EntradaDTO;
 import ticketya.compras_service.dto.ConfirmacionPagoResponse;
 import ticketya.compras_service.dto.ReservaResponse;
 import ticketya.compras_service.model.EstadoOrden;
+import ticketya.compras_service.repository.BloqueoAsientoRepository;
 import ticketya.compras_service.service.ReservaService;
 
 import java.math.BigDecimal;
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -33,6 +35,9 @@ class CompraControllerTest {
 
     @MockitoBean
     private ReservaService reservaService;
+
+    @MockitoBean
+    private BloqueoAsientoRepository bloqueoAsientoRepo;
 
     @Test
     void reservarDevuelve201YPasaLaClaveDeIdempotencia() throws Exception {
@@ -68,7 +73,7 @@ class CompraControllerTest {
                 "txn-999",
                 new BigDecimal("100.00"),
                 "TARJETA",
-                List.of(new EntradaDTO("ent-1", "sector-1", "A", 1, "qr-hash-1", "EMITIDA", LocalDateTime.now().toString())),
+                List.of(new EntradaDTO("ent-1", ordenId.toString(), "cliente-1", "evento-1", "sector-1", "A", 1, "qr-hash-1", "EMITIDA", LocalDateTime.now().toString())),
                 "Compra completada exitosamente"
         );
         when(reservaService.confirmarPago(eq(ordenId), any())).thenReturn(respuesta);
@@ -95,7 +100,7 @@ class CompraControllerTest {
                 "txn-999",
                 new BigDecimal("100.00"),
                 "TARJETA",
-                List.of(new EntradaDTO("ent-1", "sector-1", "A", 1, "qr-hash-1", "EMITIDA", LocalDateTime.now().toString())),
+                List.of(new EntradaDTO("ent-1", ordenId.toString(), "cliente-1", "evento-1", "sector-1", "A", 1, "qr-hash-1", "EMITIDA", LocalDateTime.now().toString())),
                 "Estado actual de la orden: COMPLETADA"
         );
         when(reservaService.consultarOrden(eq(ordenId))).thenReturn(respuesta);
@@ -104,5 +109,22 @@ class CompraControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ordenId").value(ordenId.toString()))
                 .andExpect(jsonPath("$.estado").value("COMPLETADA"));
+    }
+
+    @Test
+    void liberarAsientoEliminaBloqueoPorClaveCompuesta() throws Exception {
+        mockMvc.perform(post("/api/compras/asientos/liberar")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "eventoId": "evt-1",
+                                  "sectorId": "sector-1",
+                                  "fila": "A",
+                                  "asiento": 1
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(bloqueoAsientoRepo).deleteByClaveAsiento("evt-1|sector-1|A|1");
     }
 }

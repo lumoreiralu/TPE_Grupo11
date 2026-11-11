@@ -308,7 +308,8 @@ class ReservaServiceTest {
                 .thenReturn(new EmisionResponse(
                         reserva.ordenId().toString(),
                         List.of(new EmisionResponse.EntradaDTO(
-                                "ent-1", SECTOR_ID, "A", 1, "hash-qr-123", "EMITIDA", LocalDateTime.now().toString()))));
+                                "ent-1", reserva.ordenId().toString(), "cliente-pago", EVENTO_ID,
+                                SECTOR_ID, "A", 1, "hash-qr-123", "EMITIDA", LocalDateTime.now().toString()))));
 
         ConfirmacionPagoResponse confirmacion = reservaService.confirmarPago(
                 reserva.ordenId(),
@@ -385,7 +386,9 @@ class ReservaServiceTest {
                 .thenThrow(new NegocioException(HttpStatus.BAD_GATEWAY, "entradas-service 500"))
                 .thenReturn(new EmisionResponse(
                         reserva.ordenId().toString(),
-                        List.of(new EmisionResponse.EntradaDTO("ent-1", SECTOR_ID, "A", 1, "qr-1", "EMITIDA", LocalDateTime.now().toString()))));
+                        List.of(new EmisionResponse.EntradaDTO(
+                                "ent-1", reserva.ordenId().toString(), "cliente-reintento", EVENTO_ID,
+                                SECTOR_ID, "A", 1, "qr-1", "EMITIDA", LocalDateTime.now().toString()))));
 
         // Primer intento de confirmación falla al emitir
         assertThrows(NegocioException.class, () ->

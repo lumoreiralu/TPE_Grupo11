@@ -79,5 +79,27 @@ class EntradaServiceTest {
         assertEquals(primeraEmision.entradas().get(0).id(), segundaEmision.entradas().get(0).id());
         assertEquals(primeraEmision.entradas().get(0).codigoQrHash(), segundaEmision.entradas().get(0).codigoQrHash());
     }
+
+    @Test
+    void obtenerPorClienteDevuelveSoloSusEntradas() {
+        entradaService.emitirEntradas(new EmisionEntradasRequest(
+                "orden-a",
+                "cliente-a",
+                "evento-1",
+                List.of(new ItemEntradaEmision("Platea", "A", 1))
+        ));
+        entradaService.emitirEntradas(new EmisionEntradasRequest(
+                "orden-b",
+                "cliente-b",
+                "evento-1",
+                List.of(new ItemEntradaEmision("Platea", "A", 2))
+        ));
+
+        var entradas = entradaService.obtenerPorCliente("cliente-a");
+
+        assertEquals(1, entradas.size());
+        assertEquals("cliente-a", entradas.get(0).clienteId());
+        assertEquals("orden-a", entradas.get(0).ordenCompraId());
+    }
 }
 
