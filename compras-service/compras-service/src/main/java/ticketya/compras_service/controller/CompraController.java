@@ -50,7 +50,8 @@ public class CompraController {
     @PostMapping("/asientos/liberar")
     @Transactional
     public ResponseEntity<Void> liberarAsiento(@RequestBody LiberarAsientoRequest req){
-        bloqueoAsientoRepo.deleteByEventoIdAndSectorIdAndFilaAndAsiento(req.eventoId(), req.sectorId(), req.fila(), req.asiento());
+        String claveAsiento = req.eventoId() + "|" + req.sectorId() + "|" + req.fila() + "|" + req.asiento();
+        bloqueoAsientoRepo.deleteByClaveAsiento(claveAsiento);
         return ResponseEntity.ok().build();
     }
 }

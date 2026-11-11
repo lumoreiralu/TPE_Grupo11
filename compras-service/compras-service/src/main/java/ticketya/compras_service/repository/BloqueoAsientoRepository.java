@@ -16,5 +16,5 @@ public interface BloqueoAsientoRepository extends JpaRepository<BloqueoAsiento, 
 
     void deleteByOrdenId(UUID ordenId);
 
-    void deleteByEventoIdAndSectorIdAndFilaAndAsiento(String eventoId, String sectorId, String fila, Integer asiento);
+    void deleteByClaveAsiento(String claveAsiento);
 }

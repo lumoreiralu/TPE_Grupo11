@@ -51,5 +51,11 @@ public class EntradaController {
         int canceladas = entradaService.cancelarEntradasPorEvento(eventoId);
         return ResponseEntity.ok("Se cancelaron" + canceladas + " entradas y se liberaron sus asientos");
     }
+
+    @GetMapping("/cliente/{clienteId}")
+    public ResponseEntity<List<EntradaResponseDTO>> obtenerPorCliente(@PathVariable String clienteId) {
+        List<EntradaResponseDTO> entradas = entradaService.obtenerPorCliente(clienteId);
+        return ResponseEntity.ok(entradas);
+    }
 }
 

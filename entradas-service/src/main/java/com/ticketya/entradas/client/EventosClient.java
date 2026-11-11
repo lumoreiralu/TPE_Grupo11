@@ -12,13 +12,13 @@ public class EventosClient {
         this.restClient = RestClient.builder().baseUrl("http://localhost:8081").build();
     }
 
-    public record EventoFechaDTO(String id, LocalDateTime fechaHoraInicio){}
+    public record EventoFechaDTO(String id, LocalDateTime fechaHora){}
 
     public LocalDateTime obtenerFechaEvento(String eventoId){
-        EventoFechaDto evento = restClient.get()
-                .uri("/api/eventos/{id", eventoId)
+        EventoFechaDTO evento = restClient.get()
+                .uri("/api/eventos/{id}", eventoId)
                 .retrieve()
-                .body(EventoFechaDto.class);
-        return evento != null ? evento.fechaHoraInicio() : null;
+                .body(EventoFechaDTO.class);
+        return evento != null ? evento.fechaHora() : null;
     }
 }

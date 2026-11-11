@@ -211,11 +211,12 @@ public class ReservaService {
 
             // Pago APROBADO: persistimos inmediatamente el pago y la venta definitiva de los asientos
             transaccionService.registrarPagoAprobado(ordenId, pagoResponse.transaccionId(), metodoPago);
-            orden = transaccionService.obtenerOrden(ordenId);
         }
 
         // 3. Emisión de entradas en entradas-service (fuera de la transacción de BD)
         // Si falla aquí, el cobro ya está registrado como PAGO_CONFIRMADO; un reintento no vuelve a cobrar
+        // Recargamos con los detalles inicializados antes de salir de la transacción de BD.
+        orden = transaccionService.obtenerOrden(ordenId);
         List<EmisionRequest.AsientoEntrada> asientos = orden.getDetalles().stream()
                 .map(d -> new EmisionRequest.AsientoEntrada(d.getSectorId(), d.getFila(), d.getAsiento()))
                 .toList();

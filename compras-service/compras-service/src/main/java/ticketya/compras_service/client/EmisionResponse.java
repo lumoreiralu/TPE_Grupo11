@@ -9,6 +9,9 @@ public record EmisionResponse(String ordenCompraId, List<EntradaDTO> entradas) {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record EntradaDTO(String id,
+                              String ordenCompraId,
+                              String clienteId,
+                              String eventoId,
                               String sectorNombre,
                               String fila,
                               Integer asiento,
