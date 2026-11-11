@@ -18,6 +18,6 @@
 - [x] Crear generador de código QR hash único.
 - [x] Implementar endpoint de emisión de entradas invocado por `compras-service`.
 
-- [ ] **Fase 5: API Gateway e Integración**
+- [x] **Fase 5: API Gateway e Integración**
 - [x] Configurar rutas en `api-gateway` hacia los microservicios backend.
-- [ ] Probar el flujo completo de compra de punta a punta.
+- [x] Probar el flujo completo de compra de punta a punta.
