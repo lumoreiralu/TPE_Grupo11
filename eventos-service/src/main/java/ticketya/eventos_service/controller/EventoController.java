@@ -5,6 +5,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.server.ResponseStatusException;
 import ticketya.eventos_service.model.EstadoEvento;
 import ticketya.eventos_service.model.Evento;
 import ticketya.eventos_service.model.TipoEvento;
@@ -105,5 +107,26 @@ public class EventoController {
             lugarRepository.findById(evento.getLugarId())
                     .ifPresent(lugar -> evento.setCiudad(lugar.getCiudad()));
         }
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<String> cancelarEvento(@PathVariable String id){
+        //1. cambiar estado en MongoDB
+        Evento evento = eventoRepository.findById(id)
+                .orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado"));
+        evento.setEstado(EstadoEvento.CANCELADO);
+        eventoRepository.save(evento);
+
+        //2. Notificar a entradas-service para cancelar entradas y liberar asientos
+        try{
+            RestClient.create("http://localhost:8083")
+                    .post()
+                    .uri("/api/entradas/eventos/{eventoId}/cancelar", id)
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch(Exception e){
+            System.err.println("Aviso al notitifcar a entradas-service: " + e.getMessage());
+        }
+        return ResponseEntity.ok("Evento cancelado y proceso de reintegros disparado");
     }
 }

@@ -15,4 +15,6 @@ public interface BloqueoAsientoRepository extends JpaRepository<BloqueoAsiento, 
     List<BloqueoAsiento> findByEstadoAndExpiraEnBefore(EstadoBloqueo estado, LocalDateTime ahora);
 
     void deleteByOrdenId(UUID ordenId);
+
+    void deleteByEventoIdAndSectorIdAndFilaAndAsiento(String eventoId, String sectorId, String fila, Integer asiento);
 }

@@ -37,5 +37,4 @@ public class Evento {
         private BigDecimal precio;
     }
 
-
 }
