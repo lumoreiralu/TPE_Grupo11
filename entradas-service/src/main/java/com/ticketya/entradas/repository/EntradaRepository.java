@@ -1,6 +1,7 @@
 package com.ticketya.entradas.repository;
 
 import com.ticketya.entradas.model.Entrada;
+import com.ticketya.entradas.model.EstadoEntrada;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -14,4 +15,6 @@ public interface EntradaRepository extends JpaRepository<Entrada, UUID> {
     Optional<Entrada> findByCodigoQrHash(String codigoQrHash);
 
     List<Entrada> findByClienteId(String clienteId);
+
+    List<Entrada> finByEventoIdAndEstadoNot(String eventoId, EstadoEntrada estado);
 }
