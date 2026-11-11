@@ -580,7 +580,11 @@ Abrí Docker Desktop y esperá a que el motor inicie. Luego ejecutá de nuevo:
 docker compose up -d
 docker compose ps
 ```
-
+### Probar en Swagger
+* Eventos: http://localhost:8081/swagger-ui.html
+* Compras: http://localhost:8082/swagger-ui.html
+* Entradas: http://localhost:8083/swagger-ui.html
+* http://localhost:8081/v3/api-docs
 ### WSL no llega al gateway de Windows
 
 Si el frontend corre en WSL y el backend en Windows, `localhost` puede no ser el mismo. Opciones:
