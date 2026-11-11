@@ -15,6 +15,9 @@ import ticketya.eventos_service.repository.LugarRepository;
 import ticketya.eventos_service.service.EventoBusquedaService;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -70,8 +73,18 @@ public class EventoController {
             @RequestParam(required = false) String artista,
             @RequestParam(required = false) String ciudad,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        List<Evento> resultado = busquedaService.buscar(tipo, organizadorId, artista, ciudad, fechaDesde, fechaHasta);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
+            @RequestParam(required = false, defaultValue = "fecha")
+String ordenarPor) {
+       List<Evento> resultado = busquedaService.buscar(
+        tipo,
+        organizadorId,
+        artista,
+        ciudad,
+        fechaDesde,
+        fechaHasta,
+        ordenarPor
+);
         resultado.forEach(this::completarDatosLugar);
         return ResponseEntity.ok(resultado);
     }
