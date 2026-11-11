@@ -1,6 +1,5 @@
 package ticketya.eventos_service.model;
 
-
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,6 +27,7 @@ public class Evento {
     private String ciudad;
     private EstadoEvento estado = EstadoEvento.BORRADOR;
     private List<PrecioSector> preciosSectores;
+    private List<SectorResumen> sectores;
 
     @Data
     @NoArgsConstructor
@@ -37,5 +37,13 @@ public class Evento {
         private BigDecimal precio;
     }
 
-
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SectorResumen {
+        private String sectorId;
+        private String nombre;
+        private TipoSector tipo;
+        private Integer capacidadMaxima;
+    }
 }

@@ -1,36 +1,53 @@
 package ticketya.compras_service.service;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import ticketya.compras_service.exception.NegocioException;
-import ticketya.compras_service.model.BloqueoAsiento;
-import ticketya.compras_service.model.EstadoBloqueo;
-import ticketya.compras_service.model.EstadoOrden;
-import ticketya.compras_service.model.OrdenCompra;
+import ticketya.compras_service.model.*;
 import ticketya.compras_service.repository.BloqueoAsientoRepository;
+import ticketya.compras_service.repository.CupoSectorRepository;
 import ticketya.compras_service.repository.OrdenCompraRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class CompraTransaccionService {
 
     private final OrdenCompraRepository ordenRepo;
     private final BloqueoAsientoRepository bloqueoRepo;
+    private final CupoSectorRepository cupoSectorRepo;
 
-    public CompraTransaccionService(OrdenCompraRepository ordenRepo, BloqueoAsientoRepository bloqueoRepo) {
+    public CompraTransaccionService(OrdenCompraRepository ordenRepo,
+                                  BloqueoAsientoRepository bloqueoRepo,
+                                  CupoSectorRepository cupoSectorRepo) {
         this.ordenRepo = ordenRepo;
         this.bloqueoRepo = bloqueoRepo;
+        this.cupoSectorRepo = cupoSectorRepo;
     }
 
     @Transactional(readOnly = true)
     public OrdenCompra obtenerOrden(UUID ordenId) {
         return ordenRepo.findById(ordenId)
                 .orElseThrow(() -> new NegocioException(HttpStatus.NOT_FOUND, "La orden " + ordenId + " no existe"));
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void asegurarCupoSector(String eventoId, String sectorId, int capacidadTotal) {
+        if (cupoSectorRepo.findByEventoIdAndSectorId(eventoId, sectorId).isEmpty()) {
+            try {
+                CupoSector cupo = new CupoSector(eventoId, sectorId, capacidadTotal, capacidadTotal);
+                cupoSectorRepo.saveAndFlush(cupo);
+            } catch (DataIntegrityViolationException ignored) {
+                // Ya fue insertado concurrentemente por otra transacción
+            }
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -52,9 +69,10 @@ public class CompraTransaccionService {
                     "La orden no se encuentra en estado de reserva temporal (estado actual: " + orden.getEstado() + ")");
         }
 
-        // Si venció el tiempo de reserva, se liberan asientos y se marca expirada de inmediato
+        // Si venció el tiempo de reserva, se liberan asientos/cupos y se marca expirada de inmediato
         if (LocalDateTime.now().isAfter(orden.getFechaExpiracionReserva())) {
             bloqueoRepo.deleteByOrdenId(ordenId);
+            restaurarCuposGenerales(orden);
             orden.setEstado(EstadoOrden.EXPIRADA);
             return ordenRepo.saveAndFlush(orden);
         }
@@ -67,6 +85,7 @@ public class CompraTransaccionService {
     public void registrarPagoRechazado(UUID ordenId, String transaccionId, String metodoPago) {
         bloqueoRepo.deleteByOrdenId(ordenId);
         ordenRepo.findById(ordenId).ifPresent(o -> {
+            restaurarCuposGenerales(o);
             o.setEstado(EstadoOrden.CANCELADA);
             o.setMetodoPago(metodoPago);
             o.setTransaccionPagoId(transaccionId);
@@ -110,5 +129,15 @@ public class CompraTransaccionService {
             }
         });
     }
-}
 
+    public void restaurarCuposGenerales(OrdenCompra orden) {
+        if (orden.getDetalles() != null) {
+            Map<String, Long> generalesPorSector = orden.getDetalles().stream()
+                    .filter(d -> d.getFila() == null && d.getAsiento() == null)
+                    .collect(Collectors.groupingBy(DetalleReserva::getSectorId, Collectors.counting()));
+
+            generalesPorSector.forEach((sectorId, cantidad) ->
+                    cupoSectorRepo.incrementarCupo(orden.getEventoId(), sectorId, cantidad.intValue()));
+        }
+    }
+}

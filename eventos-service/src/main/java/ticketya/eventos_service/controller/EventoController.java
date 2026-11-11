@@ -32,26 +32,33 @@ public class EventoController {
     @PostMapping
     public ResponseEntity<Evento> crearEvento(@RequestBody Evento evento) {
         evento.setEstado(EstadoEvento.BORRADOR);
-        completarCiudad(evento);
+        completarDatosLugar(evento);
         Evento nuevoEvento = eventoRepository.save(evento);
         return new ResponseEntity<>(nuevoEvento, HttpStatus.CREATED);
     }
 
     @GetMapping
     public ResponseEntity<List<Evento>> obtenerEventos() {
-        return new ResponseEntity<>(eventoRepository.findAll(), HttpStatus.OK);
+        List<Evento> eventos = eventoRepository.findAll();
+        eventos.forEach(this::completarDatosLugar);
+        return new ResponseEntity<>(eventos, HttpStatus.OK);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Evento> obtenerEventoPorId(@PathVariable String id) {
         return eventoRepository.findById(id)
-                .map(ResponseEntity::ok)
+                .map(evento -> {
+                    completarDatosLugar(evento);
+                    return ResponseEntity.ok(evento);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/publicados")
     public ResponseEntity<List<Evento>> obtenerEventosPublicados() {
-        return ResponseEntity.ok(eventoRepository.findByEstado(EstadoEvento.PUBLICADO));
+        List<Evento> publicados = eventoRepository.findByEstado(EstadoEvento.PUBLICADO);
+        publicados.forEach(this::completarDatosLugar);
+        return ResponseEntity.ok(publicados);
     }
 
     @GetMapping("/buscar")
@@ -62,8 +69,9 @@ public class EventoController {
             @RequestParam(required = false) String ciudad,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaDesde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta) {
-        return ResponseEntity.ok(
-                busquedaService.buscar(tipo, organizadorId, artista, ciudad, fechaDesde, fechaHasta));
+        List<Evento> resultado = busquedaService.buscar(tipo, organizadorId, artista, ciudad, fechaDesde, fechaHasta);
+        resultado.forEach(this::completarDatosLugar);
+        return ResponseEntity.ok(resultado);
     }
 
     @PutMapping("/{id}/publicar")
@@ -95,15 +103,26 @@ public class EventoController {
         }
 
         evento.setEstado(EstadoEvento.PUBLICADO);
-        completarCiudad(evento);
+        completarDatosLugar(evento);
         return ResponseEntity.ok(eventoRepository.save(evento));
     }
 
-    private void completarCiudad(Evento evento) {
-        if (evento.getLugarId() != null
-                && (evento.getCiudad() == null || evento.getCiudad().isBlank())) {
-            lugarRepository.findById(evento.getLugarId())
-                    .ifPresent(lugar -> evento.setCiudad(lugar.getCiudad()));
+    private void completarDatosLugar(Evento evento) {
+        if (evento.getLugarId() != null) {
+            lugarRepository.findById(evento.getLugarId()).ifPresent(lugar -> {
+                if (evento.getCiudad() == null || evento.getCiudad().isBlank()) {
+                    evento.setCiudad(lugar.getCiudad());
+                }
+                if (lugar.getSectores() != null) {
+                    evento.setSectores(lugar.getSectores().stream()
+                            .map(s -> new Evento.SectorResumen(
+                                    s.getSectorId(),
+                                    s.getNombre(),
+                                    s.getTipo(),
+                                    s.getCapacidadMaxima()))
+                            .toList());
+                }
+            });
         }
     }
 }
