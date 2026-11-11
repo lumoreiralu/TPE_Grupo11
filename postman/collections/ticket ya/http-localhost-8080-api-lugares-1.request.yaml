@@ -1,0 +1,30 @@
+$kind: http-request
+name: http://localhost:8080/api/lugares
+description: ""
+url: http://localhost:8080/api/lugares
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    { "nombre": "Estadio Uno", 
+        "direccion": "Calle 1 y 57",
+         "ubicacion": { 
+            "latitud": -34.912, 
+            "longitud": -57.945 }, 
+            "sectores": [ 
+                { "sectorId": "SEC-PLATEA-A", 
+                "nombre": "Platea Preferencial A",
+                 "tipo": "NUMERADO", 
+                 "filas": [
+                     { "fila": "1", 
+                     "asientos": [1, 2, 3, 4, 5]  } 
+                     ] 
+                     }, 
+                     { "sectorId": "SEC-CAMPO", 
+                     "nombre": "Campo General",
+                      "tipo": "CAPACIDAD_GENERAL",
+                       "capacidadMaxima": 5000 } 
+                       ] }
+order: 2000

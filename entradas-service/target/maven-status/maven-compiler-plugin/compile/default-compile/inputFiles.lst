@@ -1,0 +1,17 @@
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\client\ComprasClient.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\client\EventosClient.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\client\PasarelaClient.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\controller\EntradaController.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\dto\EmisionEntradasRequest.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\dto\EmisionEntradasResponse.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\dto\EntradaResponseDTO.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\dto\ItemEntradaEmision.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\EntradasServiceApplication.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\model\Entrada.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\model\EstadoEntrada.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\model\EstadoSolicitudDevolucion.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\model\SolicitudDevolucion.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\repository\EntradaRepository.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\repository\SolicitudDevolucionRepository.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\service\EntradaService.java
+C:\Users\mateo\OneDrive\Escritorio\TicketYa\TicketYa\entradas-service\src\main\java\com\ticketya\entradas\service\QrCodeGenerator.java

@@ -1,0 +1,6 @@
+$kind: http-request
+name: http://localhost:8080/api/eventos/publicados
+description: ""
+url: http://localhost:8080/api/eventos/publicados
+method: GET
+order: 8000

@@ -1,0 +1,26 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+# Project context (optional)
+context: |
+  TicketYa: Plataforma de venta masiva de entradas para eventos basada en microservicios. 
+  Stack: Java 17+, Spring Boot, Spring Cloud Gateway, Docker, PostgreSQL/MySQL, MongoDB.
+  Metodología: Spec-Driven Development (SDD) con especificaciones escritas en español. 
+  Principios clave: 
+  - Garantizar unicidad e idempotencia en la venta de entradas (cero doble venta de asientos/cupos). 
+  - Mecanismos de reserva temporal con TTL (10 minutos). 
+  - Separación estricta de bases de datos por microservicio (Database per Service).
+
+  Las decisiones pendientes no deben redactarse como requisitos concluidos. 
+
+# Per-artifact rules (optional)
+rules:
+  specs:
+    - Redactar cada requisito y sus criterios de aceptación en notación EARS (When/If/While ... the system shall).
+    - Incluir al menos un Scenario específico por cada criterio EARS.
+  design:
+    - Registrar cualquier decisión técnica difícil de revertir como un ADR en `docs/adr/`.
+    - Mantener independencia estricta de esquemas de base de datos entre microservicios.
+  tasks:
+    - Definir las pruebas de integración/concurrencia antes de dar por completada la implementación.

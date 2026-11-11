@@ -1,0 +1,9 @@
+$kind: http-request
+name: http://localhost:8080/api/eventos/6af366aec88eb1d03509548e/publicar
+description: ""
+url: http://localhost:8080/api/eventos/6af366aec88eb1d03509548e/publicar
+method: PUT
+body:
+  type: json
+  content: ""
+order: 7000

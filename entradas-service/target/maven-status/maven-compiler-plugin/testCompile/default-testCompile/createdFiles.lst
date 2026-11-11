@@ -1,0 +1,4 @@
+com\ticketya\entradas\DevolucionServiceTest.class
+com\ticketya\entradas\EntradasServiceApplicationTests.class
+com\ticketya\entradas\service\EntradaServiceTest.class
+com\ticketya\entradas\service\QrCodeGeneratorTest.class
