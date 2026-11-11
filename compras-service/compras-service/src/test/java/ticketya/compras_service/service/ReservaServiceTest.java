@@ -14,10 +14,12 @@ import ticketya.compras_service.dto.ReservaRequest;
 import ticketya.compras_service.dto.ReservaResponse;
 import ticketya.compras_service.exception.NegocioException;
 import ticketya.compras_service.model.BloqueoAsiento;
+import ticketya.compras_service.model.CupoSector;
 import ticketya.compras_service.model.EstadoBloqueo;
 import ticketya.compras_service.model.EstadoOrden;
 import ticketya.compras_service.model.OrdenCompra;
 import ticketya.compras_service.repository.BloqueoAsientoRepository;
+import ticketya.compras_service.repository.CupoSectorRepository;
 import ticketya.compras_service.repository.OrdenCompraRepository;
 
 import java.math.BigDecimal;
@@ -39,6 +41,7 @@ class ReservaServiceTest {
 
     private static final String EVENTO_ID = "evt-1";
     private static final String SECTOR_ID = "sector-1";
+    private static final String SECTOR_CAMPO = "sector-campo";
 
     @Autowired
     private ReservaService reservaService;
@@ -51,6 +54,9 @@ class ReservaServiceTest {
 
     @Autowired
     private BloqueoAsientoRepository bloqueoRepo;
+
+    @Autowired
+    private CupoSectorRepository cupoSectorRepo;
 
     @MockitoBean
     private EventosClient eventosClient;
@@ -65,9 +71,21 @@ class ReservaServiceTest {
     void setUp() {
         bloqueoRepo.deleteAll();
         ordenRepo.deleteAll();
+        cupoSectorRepo.deleteAll();
+
         when(eventosClient.obtenerEvento(EVENTO_ID))
-                .thenReturn(new EventoDTO(EVENTO_ID, "PUBLICADO",
-                        List.of(new EventoDTO.PrecioSectorDTO(SECTOR_ID, new BigDecimal("100.00")))));
+                .thenReturn(new EventoDTO(
+                        EVENTO_ID,
+                        "PUBLICADO",
+                        List.of(
+                                new EventoDTO.PrecioSectorDTO(SECTOR_ID, new BigDecimal("100.00")),
+                                new EventoDTO.PrecioSectorDTO(SECTOR_CAMPO, new BigDecimal("50.00"))
+                        ),
+                        List.of(
+                                new EventoDTO.SectorInfoDTO(SECTOR_ID, "Platea Numerada", "NUMERADO", 100),
+                                new EventoDTO.SectorInfoDTO(SECTOR_CAMPO, "Campo General", "CAPACIDAD_GENERAL", 2)
+                        )
+                ));
     }
 
     @Test
@@ -140,6 +158,115 @@ class ReservaServiceTest {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    @Test
+    void reservaSectorGeneralDecrementaCupoAtomicamente() {
+        ReservaRequest reqCampo = new ReservaRequest("cliente-campo", EVENTO_ID,
+                List.of(new ItemReserva(SECTOR_CAMPO, null, null)));
+
+        ReservaResponse respuesta = reservaService.reservar(reqCampo, "idem-campo-1");
+
+        assertNotNull(respuesta.ordenId());
+        assertEquals(EstadoOrden.RESERVADA_TEMPORAL, respuesta.estado());
+        assertEquals(0, respuesta.montoTotal().compareTo(new BigDecimal("50.00")));
+
+        // Cupos: capacidad inicial 2, reservado 1 -> disponible 1
+        CupoSector cupo = cupoSectorRepo.findByEventoIdAndSectorId(EVENTO_ID, SECTOR_CAMPO).orElseThrow();
+        assertEquals(2, cupo.getCapacidadTotal());
+        assertEquals(1, cupo.getCuposDisponibles());
+        assertEquals(1, bloqueoRepo.count());
+    }
+
+    @Test
+    void concurrenciaSectorGeneralNoSobrevendeUltimoLugar() throws Exception {
+        // Capacidad configurada en 2 para SECTOR_CAMPO
+        int hilos = 4;
+        ExecutorService pool = Executors.newFixedThreadPool(hilos);
+        CountDownLatch listos = new CountDownLatch(hilos);
+        CountDownLatch salida = new CountDownLatch(1);
+        List<Future<Object>> resultados = new ArrayList<>();
+
+        try {
+            for (int i = 0; i < hilos; i++) {
+                final int idx = i;
+                resultados.add(pool.submit(() -> {
+                    listos.countDown();
+                    salida.await(5, TimeUnit.SECONDS);
+                    try {
+                        ReservaRequest req = new ReservaRequest("cliente-c-" + idx, EVENTO_ID,
+                                List.of(new ItemReserva(SECTOR_CAMPO, null, null)));
+                        return reservaService.reservar(req, "idem-c-" + idx);
+                    } catch (NegocioException e) {
+                        return e;
+                    }
+                }));
+            }
+
+            assertTrue(listos.await(5, TimeUnit.SECONDS));
+            salida.countDown();
+
+            int exitos = 0;
+            int conflictos = 0;
+            for (Future<Object> f : resultados) {
+                Object res = f.get(15, TimeUnit.SECONDS);
+                if (res instanceof ReservaResponse) {
+                    exitos++;
+                } else if (res instanceof NegocioException e && e.getStatus() == HttpStatus.CONFLICT) {
+                    conflictos++;
+                }
+            }
+
+            // Exactamente 2 reservas exitosas (la capacidad máxima) y 2 rechazadas
+            assertEquals(2, exitos, "Deben confirmarse exactamente 2 reservas para el cupo máximo");
+            assertEquals(2, conflictos, "Las solicitudes excedentes deben recibir 409 CONFLICT");
+
+            // Los cupos en BD deben ser exactamente 0 (nunca negativos)
+            CupoSector cupo = cupoSectorRepo.findByEventoIdAndSectorId(EVENTO_ID, SECTOR_CAMPO).orElseThrow();
+            assertEquals(0, cupo.getCuposDisponibles(), "El cupo disponible no debe bajar de 0 ni sobrevenderse");
+            assertEquals(2, ordenRepo.count(), "Solo deben existir 2 órdenes guardadas");
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void liberacionReservaGeneralRestauraCuposDisponibles() {
+        ReservaRequest req = new ReservaRequest("cliente-exp-campo", EVENTO_ID,
+                List.of(new ItemReserva(SECTOR_CAMPO, null, null)));
+        ReservaResponse respuesta = reservaService.reservar(req, "idem-exp-c");
+
+        assertEquals(1, cupoSectorRepo.findByEventoIdAndSectorId(EVENTO_ID, SECTOR_CAMPO).orElseThrow().getCuposDisponibles());
+
+        // Forzar expiración
+        OrdenCompra orden = ordenRepo.findById(respuesta.ordenId()).orElseThrow();
+        orden.setFechaExpiracionReserva(LocalDateTime.now().minusMinutes(5));
+        ordenRepo.saveAndFlush(orden);
+
+        reservaService.liberarReservasVencidas();
+
+        // El cupo debe volver a 2
+        assertEquals(2, cupoSectorRepo.findByEventoIdAndSectorId(EVENTO_ID, SECTOR_CAMPO).orElseThrow().getCuposDisponibles());
+        assertTrue(bloqueoRepo.findByOrdenId(respuesta.ordenId()).isEmpty());
+    }
+
+    @Test
+    void rechazoPagoReservaGeneralRestauraCupos() {
+        ReservaRequest req = new ReservaRequest("cliente-rechazo-c", EVENTO_ID,
+                List.of(new ItemReserva(SECTOR_CAMPO, null, null)));
+        ReservaResponse respuesta = reservaService.reservar(req, "idem-rechazo-c");
+
+        assertEquals(1, cupoSectorRepo.findByEventoIdAndSectorId(EVENTO_ID, SECTOR_CAMPO).orElseThrow().getCuposDisponibles());
+
+        when(pasarelaClient.procesarPago(any()))
+                .thenReturn(new PagoResponse("txn-rechazada", "RECHAZADO", "Fondos insuficientes"));
+
+        assertThrows(NegocioException.class, () ->
+                reservaService.confirmarPago(respuesta.ordenId(), new ConfirmarPagoRequest("TARJETA_RECHAZADA")));
+
+        // El cupo debe restaurarse a 2
+        assertEquals(2, cupoSectorRepo.findByEventoIdAndSectorId(EVENTO_ID, SECTOR_CAMPO).orElseThrow().getCuposDisponibles());
+        assertTrue(bloqueoRepo.findByOrdenId(respuesta.ordenId()).isEmpty());
     }
 
     @Test

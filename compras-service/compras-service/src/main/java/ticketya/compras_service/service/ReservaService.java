@@ -10,19 +10,23 @@ import ticketya.compras_service.dto.*;
 import ticketya.compras_service.exception.NegocioException;
 import ticketya.compras_service.model.*;
 import ticketya.compras_service.repository.BloqueoAsientoRepository;
+import ticketya.compras_service.repository.CupoSectorRepository;
 import ticketya.compras_service.repository.OrdenCompraRepository;
 
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ReservaService {
 
     private final OrdenCompraRepository ordenRepo;
     private final BloqueoAsientoRepository bloqueoRepo;
+    private final CupoSectorRepository cupoSectorRepo;
     private final EventosClient eventosClient;
     private final PasarelaClient pasarelaClient;
     private final EntradasClient entradasClient;
@@ -36,12 +40,14 @@ public class ReservaService {
 
     public ReservaService(OrdenCompraRepository ordenRepo,
                           BloqueoAsientoRepository bloqueoRepo,
+                          CupoSectorRepository cupoSectorRepo,
                           EventosClient eventosClient,
                           PasarelaClient pasarelaClient,
                           EntradasClient entradasClient,
                           CompraTransaccionService transaccionService) {
         this.ordenRepo = ordenRepo;
         this.bloqueoRepo = bloqueoRepo;
+        this.cupoSectorRepo = cupoSectorRepo;
         this.eventosClient = eventosClient;
         this.pasarelaClient = pasarelaClient;
         this.entradasClient = entradasClient;
@@ -60,7 +66,7 @@ public class ReservaService {
 
         validar(req);
 
-        // 2. Las reservas vencidas liberan sus asientos antes de intentar tomarlos
+        // 2. Las reservas vencidas liberan sus asientos y cupos antes de intentar tomarlos
         liberarReservasVencidas();
 
         // 3. El evento tiene que existir y estar publicado
@@ -79,7 +85,26 @@ public class ReservaService {
                     "Supera el maximo de " + limiteEntradas + " entradas por cliente para este evento");
         }
 
-        // 5. Armamos la orden con su detalle y el monto total
+        // 5. Validación y decremento atómico de cupos para sectores generales (Campo / No numerado)
+        Map<String, Long> generalesPorSector = req.items().stream()
+                .filter(item -> esSectorGeneral(evento, item))
+                .collect(Collectors.groupingBy(ItemReserva::sectorId, Collectors.counting()));
+
+        for (Map.Entry<String, Long> entry : generalesPorSector.entrySet()) {
+            String sectorId = entry.getKey();
+            int cantidadSolicitada = entry.getValue().intValue();
+            int capacidadMaxima = obtenerCapacidadMaxima(evento, sectorId);
+
+            transaccionService.asegurarCupoSector(req.eventoId(), sectorId, capacidadMaxima);
+
+            int filasActualizadas = cupoSectorRepo.decrementarCupo(req.eventoId(), sectorId, cantidadSolicitada);
+            if (filasActualizadas == 0) {
+                throw new NegocioException(HttpStatus.CONFLICT,
+                        "No hay cupos disponibles suficientes en el sector general " + sectorId);
+            }
+        }
+
+        // 6. Armamos la orden con su detalle y el monto total
         LocalDateTime ahora = LocalDateTime.now();
         OrdenCompra orden = new OrdenCompra();
         orden.setClienteId(req.clienteId());
@@ -104,15 +129,25 @@ public class ReservaService {
         orden.setMontoTotal(total);
         orden = ordenRepo.saveAndFlush(orden);
 
-        // 6. Un bloqueo por asiento. La restriccion UNICA decide quien gana.
+        // 7. Bloqueos de asientos o cupos:
+        //    - Numerados: clave compuesta (evento|sector|fila|asiento). La restricción ÚNICA previene doble venta.
+        //    - Generales: clave única por item de orden para registrar la reserva temporal.
+        int indiceGeneral = 0;
         for (ItemReserva item : req.items()) {
+            boolean esGeneral = esSectorGeneral(evento, item);
             BloqueoAsiento bloqueo = new BloqueoAsiento();
             bloqueo.setEventoId(req.eventoId());
             bloqueo.setSectorId(item.sectorId());
-            bloqueo.setClaveAsiento(claveAsiento(req.eventoId(), item));
             bloqueo.setOrdenId(orden.getId());
             bloqueo.setEstado(EstadoBloqueo.BLOQUEADO);
             bloqueo.setExpiraEn(orden.getFechaExpiracionReserva());
+
+            if (esGeneral) {
+                bloqueo.setClaveAsiento(claveGeneral(req.eventoId(), item.sectorId(), orden.getId(), indiceGeneral++));
+            } else {
+                bloqueo.setClaveAsiento(claveAsiento(req.eventoId(), item));
+            }
+
             try {
                 bloqueoRepo.saveAndFlush(bloqueo);
             } catch (DataIntegrityViolationException e) {
@@ -169,7 +204,7 @@ public class ReservaService {
                         ? pagoResponse.mensaje()
                         : "Pago rechazado por la pasarela";
 
-                // R5.3: El rechazo libera inmediatamente los asientos y cancela la orden de forma confirmada en BD
+                // R5.3: El rechazo libera inmediatamente los asientos/cupos y cancela la orden de forma confirmada en BD
                 transaccionService.registrarPagoRechazado(ordenId, transId, metodoPago);
                 throw new NegocioException(HttpStatus.PAYMENT_REQUIRED, "El pago fue rechazado: " + motivo);
             }
@@ -234,6 +269,7 @@ public class ReservaService {
                 EstadoOrden.RESERVADA_TEMPORAL, LocalDateTime.now());
         for (OrdenCompra o : vencidas) {
             bloqueoRepo.deleteByOrdenId(o.getId());
+            transaccionService.restaurarCuposGenerales(o);
             o.setEstado(EstadoOrden.EXPIRADA);
         }
         ordenRepo.saveAll(vencidas);
@@ -248,11 +284,39 @@ public class ReservaService {
                     "Hay que indicar clienteId, eventoId y al menos un item");
         }
         for (ItemReserva item : req.items()) {
-            if (item.sectorId() == null || item.fila() == null || item.asiento() == null) {
+            if (item.sectorId() == null || item.sectorId().isBlank()) {
                 throw new NegocioException(HttpStatus.BAD_REQUEST,
-                    "Por ahora solo se reservan asientos numerados (sectorId, fila y asiento)");
+                        "Cada item de reserva debe indicar sectorId");
+            }
+            boolean tieneFila = item.fila() != null && !item.fila().isBlank();
+            boolean tieneAsiento = item.asiento() != null;
+            if (tieneFila != tieneAsiento) {
+                throw new NegocioException(HttpStatus.BAD_REQUEST,
+                        "Para asientos numerados se debe especificar tanto fila como asiento");
             }
         }
+    }
+
+    private boolean esSectorGeneral(EventoDTO evento, ItemReserva item) {
+        if (evento.sectores() != null) {
+            for (EventoDTO.SectorInfoDTO s : evento.sectores()) {
+                if (item.sectorId().equals(s.sectorId())) {
+                    return "CAPACIDAD_GENERAL".equalsIgnoreCase(s.tipo());
+                }
+            }
+        }
+        return item.fila() == null && item.asiento() == null;
+    }
+
+    private int obtenerCapacidadMaxima(EventoDTO evento, String sectorId) {
+        if (evento.sectores() != null) {
+            for (EventoDTO.SectorInfoDTO s : evento.sectores()) {
+                if (sectorId.equals(s.sectorId()) && s.capacidadMaxima() != null && s.capacidadMaxima() > 0) {
+                    return s.capacidadMaxima();
+                }
+            }
+        }
+        return 1000; // Capacidad por defecto si no está especificada en el mock/evento
     }
 
     private BigDecimal precioDelSector(EventoDTO evento, String sectorId) {
@@ -273,6 +337,10 @@ public class ReservaService {
 
     private String claveAsiento(String eventoId, ItemReserva item) {
         return eventoId + "|" + item.sectorId() + "|" + item.fila() + "|" + item.asiento();
+    }
+
+    private String claveGeneral(String eventoId, String sectorId, UUID ordenId, int index) {
+        return eventoId + "|" + sectorId + "|GENERAL|" + ordenId + "|" + index;
     }
 
     private ReservaResponse aRespuesta(OrdenCompra orden) {

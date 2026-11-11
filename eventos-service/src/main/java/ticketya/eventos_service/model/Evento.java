@@ -1,6 +1,6 @@
 package ticketya.eventos_service.model;
 
-
+cu
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -36,5 +36,6 @@ public class Evento {
         private String idSector;
         private BigDecimal precio;
     }
+
 
 }
