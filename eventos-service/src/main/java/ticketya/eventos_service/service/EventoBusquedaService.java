@@ -14,6 +14,8 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.math.BigDecimal;
+import java.util.Comparator;
 
 @Service
 public class EventoBusquedaService {
@@ -107,7 +109,7 @@ return eventos;
     private boolean tieneTexto(String valor) {
         return valor != null && !valor.isBlank();
     }
-}
+
 private BigDecimal obtenerPrecioMinimo(Evento evento) {
     if (evento.getPreciosSectores() == null ||
             evento.getPreciosSectores().isEmpty()) {
@@ -144,4 +146,5 @@ private int calcularRelevancia(Evento evento, String artista) {
     }
 
     return puntuacion;
+}
 }

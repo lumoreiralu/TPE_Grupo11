@@ -30,8 +30,7 @@ class EventoBusquedaServiceTest {
         Evento evento = new Evento();
         when(mongoTemplate.find(any(Query.class), eq(Evento.class))).thenReturn(List.of(evento));
 
-        List<Evento> resultado = service.buscar(null, null, null, null, null, null);
-
+        List<Evento> resultado = service.buscar(null, null, null, null, null, null, "fecha");
         assertEquals(List.of(evento), resultado);
         Query query = capturarQuery(mongoTemplate);
         List<Document> condiciones = condiciones(query);
@@ -47,9 +46,8 @@ class EventoBusquedaServiceTest {
         MongoTemplate mongoTemplate = mock(MongoTemplate.class);
         EventoBusquedaService service = new EventoBusquedaService(mongoTemplate);
         when(mongoTemplate.find(any(Query.class), eq(Evento.class))).thenReturn(List.of());
-
         service.buscar(TipoEvento.RECITAL, "org-1", "Artista", "Rosario",
-                LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 31));
+                LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 31), "fecha");
 
         Query query = capturarQuery(mongoTemplate);
         assertEquals(TipoEvento.RECITAL, valorDe(query, "tipoEvento"));
