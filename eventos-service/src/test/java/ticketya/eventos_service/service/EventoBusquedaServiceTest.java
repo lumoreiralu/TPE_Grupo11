@@ -10,10 +10,11 @@ import ticketya.eventos_service.model.Evento;
 import ticketya.eventos_service.model.TipoEvento;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,25 +28,27 @@ class EventoBusquedaServiceTest {
     void siempreFiltraEventosPublicadosYOrdenaPorFecha() {
         MongoTemplate mongoTemplate = mock(MongoTemplate.class);
         EventoBusquedaService service = new EventoBusquedaService(mongoTemplate);
-        Evento evento = new Evento();
-        when(mongoTemplate.find(any(Query.class), eq(Evento.class))).thenReturn(List.of(evento));
+        Evento posterior = new Evento();
+        posterior.setFechaHora(LocalDateTime.of(2026, 12, 2, 20, 0));
+        Evento anterior = new Evento();
+        anterior.setFechaHora(LocalDateTime.of(2026, 12, 1, 20, 0));
+        when(mongoTemplate.find(any(Query.class), eq(Evento.class)))
+                .thenReturn(new ArrayList<>(List.of(posterior, anterior)));
 
         List<Evento> resultado = service.buscar(null, null, null, null, null, null, "fecha");
-        assertEquals(List.of(evento), resultado);
+        assertEquals(List.of(anterior, posterior), resultado);
         Query query = capturarQuery(mongoTemplate);
         List<Document> condiciones = condiciones(query);
         assertEquals(1, condiciones.size());
         assertEquals("estado", condiciones.get(0).keySet().iterator().next());
         assertEquals(EstadoEvento.PUBLICADO, condiciones.get(0).get("estado"));
-        assertNotNull(query.getSortObject());
-        assertEquals("fechaHora", query.getSortObject().keySet().iterator().next());
     }
 
     @Test
     void combinaLosFiltrosOpcionales() {
         MongoTemplate mongoTemplate = mock(MongoTemplate.class);
         EventoBusquedaService service = new EventoBusquedaService(mongoTemplate);
-        when(mongoTemplate.find(any(Query.class), eq(Evento.class))).thenReturn(List.of());
+        when(mongoTemplate.find(any(Query.class), eq(Evento.class))).thenReturn(new ArrayList<>());
         service.buscar(TipoEvento.RECITAL, "org-1", "Artista", "Rosario",
                 LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 31), "fecha");
 
