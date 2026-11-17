@@ -281,8 +281,8 @@ confirma el pago y consulta las entradas:
 ```bash
 GATEWAY=http://localhost:8080
 
-LUGAR_ID=$(curl -s -X POST "$GATEWAY/api/lugares" \
-  -H 'Content-Type: application/json' \
+LUGAR_ID=$(curl -s -X POST "$GATEWAY/api/lugares" 
+  -H 'Content-Type: application/json' 
   -d '{
     "nombre": "Estadio TicketYa",
     "direccion": "Av. Principal 123",
@@ -307,39 +307,39 @@ LUGAR_ID=$(curl -s -X POST "$GATEWAY/api/lugares" \
     ]
   }' | jq -r .id)
 
-EVENTO_ID=$(curl -s -X POST "$GATEWAY/api/eventos" \
-  -H 'Content-Type: application/json' \
+EVENTO_ID=$(curl -s -X POST "$GATEWAY/api/eventos" 
+  -H 'Content-Type: application/json' 
   -d "{
-    \"nombre\": \"Recital TicketYa Tour\",
-    \"descripcion\": \"Una noche de musica en vivo.\",
-    \"tipoEvento\": \"RECITAL\",
-    \"organizadorId\": \"ORG-101\",
-    \"participantes\": [\"Artista A\", \"Banda B\"],
-    \"fechaHora\": \"2027-12-15T21:00:00\",
-    \"lugarId\": \"$LUGAR_ID\",
-    \"ciudad\": \"Montevideo\",
-    \"preciosSectores\": [
-      { \"idSector\": \"SEC-PLATEA-A\", \"precio\": 30000 },
-      { \"idSector\": \"SEC-CAMPO\", \"precio\": 15000 }
+    "nombre": "Recital TicketYa Tour",
+    "descripcion": "Una noche de musica en vivo.",
+    "tipoEvento": "RECITAL",
+    "organizadorId": "ORG-101",
+    "participantes": ["Artista A", "Banda B"],
+    "fechaHora": "2027-12-15T21:00:00",
+    "lugarId": "$LUGAR_ID",
+    "ciudad": "Montevideo",
+    "preciosSectores": [
+      { "idSector": "SEC-PLATEA-A", "precio": 30000 },
+      { "idSector": "SEC-CAMPO", "precio": 15000 }
     ]
   }" | jq -r .id)
 
 curl -s -X PUT "$GATEWAY/api/eventos/$EVENTO_ID/publicar"
 
-ORDEN_ID=$(curl -s -X POST "$GATEWAY/api/compras/reservar" \
-  -H 'Content-Type: application/json' \
-  -H 'Idempotency-Key: demo-001' \
+ORDEN_ID=$(curl -s -X POST "$GATEWAY/api/compras/reservar" 
+  -H 'Content-Type: application/json' 
+  -H 'Idempotency-Key: demo-001' 
   -d "{
-    \"clienteId\": \"CLI-1234\",
-    \"eventoId\": \"$EVENTO_ID\",
-    \"items\": [
-      { \"sectorId\": \"SEC-PLATEA-A\", \"fila\": \"1\", \"asiento\": 1 },
-      { \"sectorId\": \"SEC-PLATEA-A\", \"fila\": \"1\", \"asiento\": 2 }
+    "clienteId": "CLI-1234",
+    "eventoId": "$EVENTO_ID",
+    "items": [
+      { "sectorId": "SEC-PLATEA-A", "fila": "1", "asiento": 1 },
+      { "sectorId": "SEC-PLATEA-A", "fila": "1", "asiento": 2 }
     ]
   }" | jq -r .ordenId)
 
-curl -s -X POST "$GATEWAY/api/compras/$ORDEN_ID/confirmar-pago" \
-  -H 'Content-Type: application/json' \
+curl -s -X POST "$GATEWAY/api/compras/$ORDEN_ID/confirmar-pago" 
+  -H 'Content-Type: application/json' 
   -d '{"metodoPago":"TARJETA"}'
 
 curl -s "$GATEWAY/api/entradas/orden/$ORDEN_ID"
