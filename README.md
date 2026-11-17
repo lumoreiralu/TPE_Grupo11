@@ -641,3 +641,52 @@ Postman, seleccioná ese mismo cliente en la UI o consultá
 - Cambio funcional y checklist: `openspec/changes/core-ticket-purchase/`.
 - Detalle del frontend: `frontend/README.md`.
 - Colección de requests: `postman/TicketYa.postman_collection.json`.
+
+## 🛡️ Capa de Seguridad y Autenticación (JWT & RBAC) 
+
+La plataforma implementa una arquitectura de seguridad *stateless* basada en **JSON Web Tokens (JWT)** integrada en el **`api-gateway`** mediante **Spring Cloud Gateway (WebFlux)** y **Spring Security**. 
+
+### 🔐 1. Flujo de Autenticación 
+
+1. El usuario envía sus credenciales al endpoint único `POST /api/auth/login`. 
+2. El `api-gateway` valida la contraseña encriptada con **BCrypt** contra la base de datos de usuarios. 
+3. Si la validación es exitosa, se genera y devuelve un **JWT firmado digitalmente** (algoritmo HMAC-SHA) que contiene el usuario (`subject`), los roles asignados (`roles`) y el tiempo de expiración (1 hora). 
+4. Para acceder a los recursos protegidos, el cliente debe adjuntar el encabezado HTTP: 
+
+```http
+Authorization: Bearer <token_jwt>
+```
+
+### 2. Matriz de Control de Acceso Basado en Roles (RBAC)
+
+El acceso a los endpoints está restringido según el rol del usuario autenticado:
+
+| Rol | Permisos y Operaciones Autorizadas | Endpoints Clave Protegidos |
+| --- | --- | --- |
+| `ROLE_ORGANIZADOR` | Registrar lugares, crear y publicar eventos, consultar reportes. | `POST /api/lugares`, `POST/PUT /api/eventos/**` |
+| `ROLE_CLIENTE` | Reservar entradas, confirmar pago y consultar sus tickets emitidos. | `POST /api/compras/**`, `GET /api/entradas/cliente/**` |
+| `ROLE_PERSONAL_ACCESO` | Validar y registrar el ingreso con código QR en puerta. | `POST /api/entradas/validar-qr` |
+| `ROLE_ADMINISTRADOR` | Cancelar eventos y aprobar o rechazar devoluciones de entradas. | `PUT /api/eventos/{id}/cancelar`, `POST /api/entradas/devoluciones/**` |
+
+### 3. Usuarios Precargados para Pruebas
+
+El sistema incluye los siguientes usuarios de demostración precargados con contraseñas encriptadas mediante BCrypt:
+
+| Usuario (username) | Contraseña (password) | Rol Asignado |
+| --- | --- | --- |
+| `organizador1` | `org123` | `ROLE_ORGANIZADOR` |
+| `cliente1` | `cliente123` | `ROLE_CLIENTE` |
+| `puerta1` | `puerta123` | `ROLE_PERSONAL_ACCESO` |
+| `admin` | `admin123` | `ROLE_ADMINISTRADOR` |
+
+### 4. Ejemplo de Invocación desde cURL
+Obtener Token JWT(Login):
+curl -X POST http://localhost:8080/api/auth/login \
+-H "Content-Type: application/json" \
+-d '{"username": "organizador1", "password": "org123"}'
+
+Consumir Endpoint Protegido con Token: 
+curl -X POST http://localhost:8080/api/lugares \
+-H "Authorization: Bearer <TOKEN_OBTENIDO>" \
+-H "Content-Type: application/json" \
+-d '{"nombre": "Estadio Kempes", "direccion": "Córdoba", "capacidad": 57000}'
