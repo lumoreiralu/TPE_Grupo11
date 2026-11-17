@@ -5,7 +5,6 @@
 **Como** Organizador / Administrador, 
 **Quiero** registrar recintos con sus sectores numerados o de capacidad general,
 **Para** configurar la distribución de localidades. 
-
 - **R1.1:** **When** un organizador crea un lugar, **the system shall** registrar su ID, nombre, dirección y coordenadas geográficas. 
 - **R1.2:** **While** se define un sector numerado, **the system shall** exigir la especificación de filas y asientos. 
 - **R1.3:** **While** se define un sector no numerado, **the system shall** exigir una capacidad máxima permitida. 
@@ -99,3 +98,26 @@
 **Para** evaluar el rendimiento comercial y la disponibilidad por sector. 
 - **R12.1:** **When** un organizador consulta el panel de métricas de su evento, **the system shall** calcular y mostrar la recaudación total acumulada. 
 - **R12.2:** **When** se solicitan los reportes de ocupación, **the system shall** desglosar el porcentaje y cantidad de entradas vendidas, disponibles y devueltas por cada sector.
+
+## Feature 9: Requisitos de Seguridad y Autenticación (Entrega 2) 
+### US-13: Autenticación de Usuarios y Emisión de Token JWT 
+**Como** usuario del sistema (Cliente, Organizador, Administrador o Personal de Acceso), 
+**Quiero** autenticarme con mis credenciales (usuario y contraseña), 
+**Para** obtener un token JWT firmado que me permita operar de forma segura en la plataforma. 
+- **R13.1:** **When** un usuario envía credenciales válidas a `POST /api/auth/login`, **the system shall** generar y devolver un token JWT firmado digitalmente con sus roles y tiempo de expiración. 
+- **R13.2:** **While** el token JWT se mantenga dentro de su período de validez (1 hora), **the system shall** aceptar el encabezado `Authorization: Bearer <token>` en cada solicitud HTPP subsiguiente sin requerir reautenticacion.
+- **R13.3:** **If** el usuario ingresa una contraseña incorrecta o un usuario inexistente, **then the system shall** rechazar la solicitud devolviendo un código HTTP `401 Unauthorixed`.
+
+### US-14: Control de Acceso basado en Roles (RBAC)
+- **R14.1:** **When** un usuario intenta acceder a un edpoint protegido, **the system shall** interceptar la petición, validad la firma del JWT y extraer los roles del payload.
+- **R14.2:** **While** el usuario posea el rol exigido por la ruta, **the system shall** permitir la ejecución del endpoint. 
+- **R14.3:** **If** el token JWT provisto está expirado o su firma es inválida, **then the system shall** denegar el procesamiento devolviendo un código HTTP `401 Unauthorized`. 
+- **R14.4:** **If** un usuario autenticado intenta acceder a una función no permitida para su rol, **then the system shall** bloquear la solicitud devolviendo un código HTTP `403 Forbidden`.
+
+### US-15: Escaneo y Control de Acceso en Puerta (Validación QR) 
+- **R15.1:** **When** personal con rol `ROLE_PERSONAL_ACCESO` envía una petición a `POST /api/entradas/validar-qr`, **the system shall** buscar la entrada en la base de datos `db_entradas`. 
+- **R15.2:** **While** la entrada se encuentre en estado `EMITIDA` y pertenezca al evento actual, **the system shall** actualizar su estado a `USADA` y registrar la fecha y hora de ingreso. 
+- **R15.3:** **If** la entrada ya fue escaneada previamente (estado `USADA`), **then the system shall** rechazar el ingreso devolviendo un código HTTP `409 Conflict`. 
+- **R15.4:** **If** la entrada fue cancelada o anulada, **then the system shall** rechazar el ingreso devolviendo un código HTTP `400 Bad Request`.
+
+

@@ -314,3 +314,78 @@ paths:
 
         "400":
           description: La solicitud ya fue procesada anteriormente.
+
+  /api/entradas/validar-qr:
+    post:
+      summary: Validar código QR de entrada en el acceso al evento
+      tags:
+        - Control de Acceso
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Entrada válida. Se registra fecha/hora de ingreso y se registra como utilizada.
+        "400":
+          description: Código QR inválido o no corresponde al evento.
+        "401":
+          description: Token JWT inválido o expirado.
+        "403":
+          description: Acceso denegado. El usuario no tiene permisos para validar entradas.
+        "409":
+          description: La entrada ya fue utilizada previamente.
+
+  # ==========================================
+  # AUTENTICACION Y SEGURIDAD
+  # ==========================================
+
+  /api/auth/login:
+    post:
+      summary: Autenticación de usuario y obtención de token JWT
+      description: Recibe las credenciales del usuario y devuelve un token JWT firmado valido para las peticiones protegidas.
+      tags:
+        - Autenticación
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "organizador1"
+                password:
+                  type: string
+                  example: "admin123"
+      responses:
+        "200":
+          description: Autenticación exitosa. Se devuelve el token JWT y sus metadatos.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  tokenType:
+                    type: string
+                    example: "Bearer"
+                  expiresInSeconds:
+                    type: integer
+                    example: 3600
+        "401":
+          description: Credenciales inválidas o cuenta inexistente.
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Ingrese el token JWT obtenido en el endpoint `/api/auth/login`.
+        Ejmplo de encabezado generado: `Authorization: Bearer eyJhbGci...`

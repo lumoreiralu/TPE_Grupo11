@@ -1,7 +1,6 @@
 package com.ticketya.entradas.client;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import java.math.BigDecimal;
 import java.util.Map;
 
 @Component
