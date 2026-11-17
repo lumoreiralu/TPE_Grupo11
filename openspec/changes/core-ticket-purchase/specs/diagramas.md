@@ -21,7 +21,7 @@ Client[Cliente / Frontend] -->|Peticiones HTTP/REST| Gateway[API Gateway :8080]
         ComprasSvc --> PostgreCompras[(PostgreSQL Compras :5432)]
         EntradasSvc --> PostgreEntradas[(PostgreSQL Entradas :5433)]
     end
-
+```
 2. Diagrama de Secuencia: Compra con Pago Rechazado
 
 Escenario: El cliente bloquea un asiento correctamente, pero la pasarela de pagos rechaza la transacción (por fondos insuficientes, tarjeta inválida, etc.)  El sistema debe actualizar la orden a RECHAZADA y liberar el asiento de inmediato para no retenerlo innecesariamente
@@ -68,15 +68,15 @@ participant Pasarela as pasarela-mock-service
     Compras-->>Gateway: 400 / 402 (Error: Pago rechazado. Asiento liberado)
     Gateway-->>Cliente: 400 / 402 (Pago rechazado. Puedes reintentar con otro medio)
 
-
+```
 ---
 
 3. Diagrama de Secuencia: Reserva Vencida (Timeout de los 10 minutos)
 
 Escenario: El cliente genera la reserva temporal, pero abandona la pantalla o tarda más del tiempo límite (ej. 10 minutos) sin completar el pago 
 Aquí intervienen dos mecanismos concurrentes 
-1.El Job en segundo plano @Scheduled que barre periódicamente y libera los bloqueos expirados.
-2.La validación defensiva al intentar pagar tardíamente*, que rechaza la operación informando que la reserva expiró
+1. El Job en segundo plano @Scheduled que barre periódicamente y libera los bloqueos expirados.
+2. La validación defensiva al intentar pagar tardíamente*, que rechaza la operación informando que la reserva expiró
 
 ```mermaid
 sequenceDiagram
@@ -123,11 +123,11 @@ actor OtroCliente as Otro Cliente
     Note over Compras: La reserva venció: NO se invoca a la pasarela de pagos
     Compras-->>Gateway: 409 Conflict / 410 Gone ("La reserva temporal ha expirado")
     Gateway-->>Cliente: 409 Conflict ("Tiempo agotado. La reserva fue liberada")
+```
 
+4. Autenticación y filtro JWT
 
-4. Autenticacion y filtro JWT
-
-Escenario Flujo 1: El cliente envia sus credenciales al punto de entrada unico(API Gateway). El servicio verifica la identidad, se contruye el JWT firmado con la clave secreta, incrustando en el payload el usuario, la fecha de expiracion y la lista de permisos o roles. Se responde al cliente con el token en formato Bearer.
+Escenario Flujo 1: El cliente envía sus credenciales al punto de entrada unico(API Gateway). El servicio verifica la identidad, se construye el JWT firmado con la clave secreta, incrustando en el payload el usuario, la fecha de expiracion y la lista de permisos o roles. Se responde al cliente con el token en formato Bearer.
 Escenario Flujo 2: Todas las invocaciones a servicios REST protegidos adjuntan la cabecera Authorization: Bearer <token>. La clase `JWTAuthorizationFilter` intercepta la solicitud HTTP entrante antes de que llegue a los controladores. El filtro invoca a `Jwts.parser()` utilizando la clave secreta compartida para descifrar la firma y comprobar que el token no haya vencido ni haya sido alterado externamente. Si el token es válido, extrae los roles y configura el objeto `UsernamePasswordAuthenticationToken` dentro del `SecurityContextHolder` de Spring. Luego llama a `filterChain.doFilter(...)` para permitir el paso hacia el `RestController`. Si el token es inválido o expirado, se captura la excepción (`ExpiredJwtException`, `MalformedJwtException`), se limpia el contexto de seguridad y se devuelve de inmediato un estado HTTP `401 Unauthorized` o `403 Forbidden`.
 
 ```mermaid
@@ -184,3 +184,4 @@ sequenceDiagram
             Gateway-->>Cliente: 200 OK / 201 Created (JSON Response)
         end 
     end
+```

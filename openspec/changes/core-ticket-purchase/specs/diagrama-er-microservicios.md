@@ -133,6 +133,18 @@ erDiagram
 
 No hay ERD persistente: ninguno configura una base de datos ni declara entidades persistentes. La pasarela crea IDs de transacción/reembolso para las respuestas simuladas, pero no guarda pagos. `compras-service` conserva `transaccionPagoId` en `OrdenCompra`; no se ha encontrado almacenamiento de la otra parte en pasarela.
 
+#### 5. Servicio de Autenticación y Usuarios — db_auth / db_usuarios 
+```mermaid
+    erDiagram 
+        USUARIO { UUID id PK 
+        string username UK 
+        string password "Hash BCrypt con salt" 
+        string email 
+        string rol "ROLE_CLIENTE, ROLE_ORGANIZADOR, ROLE_ADMINISTRADOR, ROLE_PERSONAL_ACCESO" 
+        datetime fechaCreacion 
+    }
+```
+
 ## Relaciones entre servicios
 
 ```mermaid
