@@ -3,6 +3,8 @@ package com.ticketya.entradas.controller;
 import com.ticketya.entradas.dto.EmisionEntradasRequest;
 import com.ticketya.entradas.dto.EmisionEntradasResponse;
 import com.ticketya.entradas.dto.EntradaResponseDTO;
+import com.ticketya.entradas.dto.ValidarQrRequest;
+import com.ticketya.entradas.dto.ValidarQrResponse;
 import com.ticketya.entradas.model.SolicitudDevolucion;
 import com.ticketya.entradas.service.EntradaService;
 import org.springframework.http.HttpStatus;
@@ -35,9 +37,10 @@ public class EntradaController {
     }
 
     @PostMapping("/{id}/devolucion")
-    public ResponseEntity<SolicitudDevolucion> solicitarDevolucion(@PathVariable UUID id, @RequestParam String clienteId, @RequestParam(required = false) String motivo){
+    public ResponseEntity<SolicitudDevolucion> solicitarDevolucion(@PathVariable UUID id, @RequestHeader(value = "X-User-Id", required = false) String xUserId, @RequestParam(required = false) String clienteId, @RequestParam(required = false) String motivo){
+        String resolvedClienteId = (xUserId != null) ? xUserId : clienteId;
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(entradaService.solicitarDevolucion(id, clienteId, motivo));
+                .body(entradaService.solicitarDevolucion(id, resolvedClienteId, motivo));
     }
 
     @PostMapping("/devoluciones/{solicitudId}/aprobar")
@@ -53,9 +56,27 @@ public class EntradaController {
     }
 
     @GetMapping("/cliente/{clienteId}")
-    public ResponseEntity<List<EntradaResponseDTO>> obtenerPorCliente(@PathVariable String clienteId) {
-        List<EntradaResponseDTO> entradas = entradaService.obtenerPorCliente(clienteId);
+    public ResponseEntity<List<EntradaResponseDTO>> obtenerPorCliente(@PathVariable String clienteId, @RequestHeader(value = "X-User-Id", required = false) String xUserId) {
+        String resolvedClienteId = (xUserId != null) ? xUserId : clienteId;
+        List<EntradaResponseDTO> entradas = entradaService.obtenerPorCliente(resolvedClienteId);
         return ResponseEntity.ok(entradas);
+    }
+
+    @PostMapping("/devoluciones/{solicitudId}/rechazar")
+    public ResponseEntity<Void> rechazarDevolucion(
+            @PathVariable UUID solicitudId,
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+        String motivo = body != null ? body.get("motivo") : null;
+        entradaService.rechazarDevolucion(solicitudId, motivo);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/validar-qr")
+    public ResponseEntity<ValidarQrResponse> validarQr(
+            @RequestBody ValidarQrRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) String validadorId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles) {
+        return ResponseEntity.ok(entradaService.validarQr(request, validadorId, roles));
     }
 }
 

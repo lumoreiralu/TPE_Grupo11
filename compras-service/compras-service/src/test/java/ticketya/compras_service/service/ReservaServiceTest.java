@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -74,7 +75,7 @@ class ReservaServiceTest {
         cupoSectorRepo.deleteAll();
 
         when(eventosClient.obtenerEvento(EVENTO_ID))
-                .thenReturn(new EventoDTO(
+                .thenReturn(CompletableFuture.completedFuture(new EventoDTO(
                         EVENTO_ID,
                         "PUBLICADO",
                         List.of(
@@ -85,7 +86,7 @@ class ReservaServiceTest {
                                 new EventoDTO.SectorInfoDTO(SECTOR_ID, "Platea Numerada", "NUMERADO", 100),
                                 new EventoDTO.SectorInfoDTO(SECTOR_CAMPO, "Campo General", "CAPACIDAD_GENERAL", 2)
                         )
-                ));
+                )));
     }
 
     @Test
@@ -259,7 +260,8 @@ class ReservaServiceTest {
         assertEquals(1, cupoSectorRepo.findByEventoIdAndSectorId(EVENTO_ID, SECTOR_CAMPO).orElseThrow().getCuposDisponibles());
 
         when(pasarelaClient.procesarPago(any()))
-                .thenReturn(new PagoResponse("txn-rechazada", "RECHAZADO", "Fondos insuficientes"));
+                .thenReturn(CompletableFuture.completedFuture(
+                        new PagoResponse("txn-rechazada", "RECHAZADO", "Fondos insuficientes")));
 
         assertThrows(NegocioException.class, () ->
                 reservaService.confirmarPago(respuesta.ordenId(), new ConfirmarPagoRequest("TARJETA_RECHAZADA")));
@@ -302,14 +304,15 @@ class ReservaServiceTest {
         ReservaResponse reserva = reservaService.reservar(request("cliente-pago"), "idem-pago");
 
         when(pasarelaClient.procesarPago(any()))
-                .thenReturn(new PagoResponse("txn-12345", "APROBADO", "Pago aprobado exitosamente"));
+                .thenReturn(CompletableFuture.completedFuture(
+                        new PagoResponse("txn-12345", "APROBADO", "Pago aprobado exitosamente")));
 
         when(entradasClient.emitirEntradas(any()))
-                .thenReturn(new EmisionResponse(
+                .thenReturn(CompletableFuture.completedFuture(new EmisionResponse(
                         reserva.ordenId().toString(),
                         List.of(new EmisionResponse.EntradaDTO(
                                 "ent-1", reserva.ordenId().toString(), "cliente-pago", EVENTO_ID,
-                                SECTOR_ID, "A", 1, "hash-qr-123", "EMITIDA", LocalDateTime.now().toString()))));
+                                SECTOR_ID, "A", 1, "hash-qr-123", "EMITIDA", LocalDateTime.now().toString())))));
 
         ConfirmacionPagoResponse confirmacion = reservaService.confirmarPago(
                 reserva.ordenId(),
@@ -335,7 +338,8 @@ class ReservaServiceTest {
         ReservaResponse reserva = reservaService.reservar(request("cliente-rechazo"), "idem-rechazo");
 
         when(pasarelaClient.procesarPago(any()))
-                .thenReturn(new PagoResponse("txn-rechazada", "RECHAZADO", "Fondos insuficientes"));
+                .thenReturn(CompletableFuture.completedFuture(
+                        new PagoResponse("txn-rechazada", "RECHAZADO", "Fondos insuficientes")));
 
         NegocioException exception = assertThrows(NegocioException.class, () ->
                 reservaService.confirmarPago(reserva.ordenId(), new ConfirmarPagoRequest("TARJETA_RECHAZADA")));
@@ -379,16 +383,18 @@ class ReservaServiceTest {
         ReservaResponse reserva = reservaService.reservar(request("cliente-reintento"), "idem-reintento");
 
         when(pasarelaClient.procesarPago(any()))
-                .thenReturn(new PagoResponse("txn-unica-123", "APROBADO", "Pago aprobado"));
+                .thenReturn(CompletableFuture.completedFuture(
+                        new PagoResponse("txn-unica-123", "APROBADO", "Pago aprobado")));
 
         // Simular que entradas-service falla en el primer intento
         when(entradasClient.emitirEntradas(any()))
-                .thenThrow(new NegocioException(HttpStatus.BAD_GATEWAY, "entradas-service 500"))
-                .thenReturn(new EmisionResponse(
+                .thenReturn(CompletableFuture.<EmisionResponse>failedFuture(
+                                new NegocioException(HttpStatus.BAD_GATEWAY, "entradas-service 500")))
+                .thenReturn(CompletableFuture.completedFuture(new EmisionResponse(
                         reserva.ordenId().toString(),
                         List.of(new EmisionResponse.EntradaDTO(
                                 "ent-1", reserva.ordenId().toString(), "cliente-reintento", EVENTO_ID,
-                                SECTOR_ID, "A", 1, "qr-1", "EMITIDA", LocalDateTime.now().toString()))));
+                                SECTOR_ID, "A", 1, "qr-1", "EMITIDA", LocalDateTime.now().toString())))));
 
         // Primer intento de confirmación falla al emitir
         assertThrows(NegocioException.class, () ->

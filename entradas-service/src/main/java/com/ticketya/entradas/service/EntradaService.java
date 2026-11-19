@@ -7,12 +7,17 @@ import com.ticketya.entradas.dto.EmisionEntradasRequest;
 import com.ticketya.entradas.dto.EmisionEntradasResponse;
 import com.ticketya.entradas.dto.EntradaResponseDTO;
 import com.ticketya.entradas.dto.ItemEntradaEmision;
+import com.ticketya.entradas.dto.ValidarQrRequest;
+import com.ticketya.entradas.dto.ValidarQrResponse;
 import com.ticketya.entradas.model.Entrada;
 import com.ticketya.entradas.model.EstadoEntrada;
 import com.ticketya.entradas.model.EstadoSolicitudDevolucion;
 import com.ticketya.entradas.model.SolicitudDevolucion;
 import com.ticketya.entradas.repository.EntradaRepository;
 import com.ticketya.entradas.repository.SolicitudDevolucionRepository;
+import com.ticketya.entradas.util.Futures;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,11 +25,15 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class EntradaService {
+
+    private static final Logger log = LoggerFactory.getLogger(EntradaService.class);
 
     private final EntradaRepository entradaRepository;
     private final QrCodeGenerator qrCodeGenerator;
@@ -121,7 +130,6 @@ public class EntradaService {
 
         if(!entrada.getClienteId().equals(clienteId)){
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "La entrada no pertenece al cliente solicitante");
-
         }
 
         if (entrada.getEstado() != EstadoEntrada.EMITIDA) {
@@ -134,7 +142,7 @@ public class EntradaService {
         }
 
         // Validar límite de 72 horas antes del inicio del evento
-        LocalDateTime fechaInicio = eventosClient.obtenerFechaEvento(entrada.getEventoId());
+        LocalDateTime fechaInicio = Futures.join(eventosClient.obtenerFechaEvento(entrada.getEventoId()));
         if (fechaInicio != null && LocalDateTime.now().plusHours(72).isAfter(fechaInicio)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se pueden solicitar devoluciones con menos de 72 horas de anticipación al evento");
         }
@@ -147,7 +155,6 @@ public class EntradaService {
 
         return solicitudRepo.save(solicitud);
     }
-
 
     // 2. APROBAR DEVOLUCIÓN (Admin)
     @Transactional
@@ -166,10 +173,10 @@ public class EntradaService {
         entradaRepository.save(entrada);
 
         // B. Liberamos el asiento en compras-service
-        comprasClient.liberarAsiento(entrada.getEventoId(), entrada.getSectorNombre(), entrada.getFila(), entrada.getAsiento());
+        Futures.join(comprasClient.liberarAsiento(entrada.getEventoId(), entrada.getSectorNombre(), entrada.getFila(), entrada.getAsiento()));
 
         // C. Solicitamos el reembolso a la pasarela
-        pasarelaClient.solicitarReembolso(entrada.getOrdenCompraId(), entrada.getClienteId());
+        Futures.join(pasarelaClient.solicitarReembolso(entrada.getOrdenCompraId(), entrada.getClienteId()));
 
         // D. Actualizamos la solicitud
         solicitud.setEstado(EstadoSolicitudDevolucion.APROBADA);
@@ -178,18 +185,101 @@ public class EntradaService {
         solicitudRepo.save(solicitud);
     }
 
+    // 3. RECHAZAR DEVOLUCIÓN (Admin)
+    @Transactional
+    public void rechazarDevolucion(UUID solicitudId, String motivo) {
+        SolicitudDevolucion solicitud = solicitudRepo.findById(solicitudId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Solicitud no encontrada"));
+        if (solicitud.getEstado() != EstadoSolicitudDevolucion.PENDIENTE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La solicitud ya fue procesada");
+        }
 
-    // 3. CANCELACIÓN MASIVA POR EVENTO CANCELADO
+        Entrada entrada = entradaRepository.findById(solicitud.getEntradaId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entrada no encontrada"));
+
+        if (entrada.getEstado() != EstadoEntrada.EMITIDA) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La entrada no está en estado EMITIDA");
+        }
+
+        solicitud.setEstado(EstadoSolicitudDevolucion.RECHAZADA);
+        solicitud.setFechaResolucion(LocalDateTime.now());
+        solicitud.setRespuestaAdmin(motivo != null ? motivo : "Rechazada por administrador");
+        solicitudRepo.save(solicitud);
+    }
+
+    // 4. CANCELACIÓN MASIVA POR EVENTO CANCELADO CON REINTEGRO IDEMPOTENTE POR ORDEN
     @Transactional
     public int cancelarEntradasPorEvento(String eventoId) {
         List<Entrada> activas = entradaRepository.findByEventoIdAndEstadoNot(eventoId, EstadoEntrada.CANCELADA);
+        Set<String> ordenesReintegradas = new HashSet<>();
         for (Entrada entrada : activas) {
             entrada.setEstado(EstadoEntrada.CANCELADA);
-            comprasClient.liberarAsiento(entrada.getEventoId(), entrada.getSectorNombre(), entrada.getFila(), entrada.getAsiento());
+            Futures.join(comprasClient.liberarAsiento(entrada.getEventoId(), entrada.getSectorNombre(), entrada.getFila(), entrada.getAsiento()));
+
+            String ordenId = entrada.getOrdenCompraId();
+            if (!ordenesReintegradas.contains(ordenId)) {
+                try {
+                    Futures.join(pasarelaClient.solicitarReembolso(ordenId, entrada.getClienteId()));
+                    ordenesReintegradas.add(ordenId);
+                } catch (Exception e) {
+                    log.error("Error al reintegrar orden {} en cancelacion de evento {}: {}", ordenId, eventoId, e.getMessage());
+                }
+            }
         }
         entradaRepository.saveAll(activas);
         return activas.size();
     }
 
-}
+    // 5. VALIDACIÓN DE ENTRADAS POR QR
+    @Transactional
+    public ValidarQrResponse validarQr(ValidarQrRequest request, String validadorId, String roles) {
+        Entrada entrada = entradaRepository.findByCodigoQrHash(request.qrHash())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "QR inexistente"));
 
+        if (request.eventoId() != null && !request.eventoId().isBlank()
+                && !request.eventoId().equals(entrada.getEventoId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "QR de otro evento");
+        }
+
+        if (entrada.getEstado() == EstadoEntrada.CANCELADA) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Entrada cancelada");
+        }
+
+        if (entrada.getEstado() == EstadoEntrada.USADA) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Entrada ya utilizada - reingreso denegado");
+        }
+
+        // Evento vigente
+        try {
+            LocalDateTime fechaEvento = Futures.join(eventosClient.obtenerFechaEvento(entrada.getEventoId()));
+            if (fechaEvento != null && LocalDateTime.now().isAfter(fechaEvento.plusHours(24))) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El evento ya ha finalizado");
+            }
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("No se pudo verificar fecha de evento {}: {}", entrada.getEventoId(), e.getMessage());
+        }
+
+        entrada.setEstado(EstadoEntrada.USADA);
+        entrada.setFechaIngreso(LocalDateTime.now());
+
+        try {
+            entradaRepository.save(entrada);
+        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Doble escaneo concurrente detectado");
+        }
+
+        log.info("Acceso validado para entrada {} por validador {}", entrada.getId(), validadorId);
+
+        return new ValidarQrResponse(
+                entrada.getId(),
+                entrada.getClienteId(),
+                entrada.getEventoId(),
+                entrada.getSectorNombre(),
+                entrada.getEstado(),
+                entrada.getFechaIngreso(),
+                "Acceso autorizado"
+        );
+    }
+}

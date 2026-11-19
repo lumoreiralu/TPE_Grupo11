@@ -45,6 +45,11 @@ public class Entrada {
     @Column(nullable = false)
     private LocalDateTime fechaEmision;
 
+    private LocalDateTime fechaIngreso;
+
+    @Version
+    private Long version;
+
     @PrePersist
     protected void onCreate() {
         this.fechaEmision = LocalDateTime.now();

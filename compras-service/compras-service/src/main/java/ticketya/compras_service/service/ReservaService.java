@@ -12,6 +12,7 @@ import ticketya.compras_service.model.*;
 import ticketya.compras_service.repository.BloqueoAsientoRepository;
 import ticketya.compras_service.repository.CupoSectorRepository;
 import ticketya.compras_service.repository.OrdenCompraRepository;
+import ticketya.compras_service.util.Futures;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -70,7 +71,7 @@ public class ReservaService {
         liberarReservasVencidas();
 
         // 3. El evento tiene que existir y estar publicado
-        EventoDTO evento = eventosClient.obtenerEvento(req.eventoId());
+        EventoDTO evento = Futures.join(eventosClient.obtenerEvento(req.eventoId()));
         if (!"PUBLICADO".equals(evento.estado())) {
             throw new NegocioException(HttpStatus.CONFLICT, "El evento no esta publicado");
         }
@@ -171,7 +172,8 @@ public class ReservaService {
         }
 
         if (orden.getEstado() == EstadoOrden.COMPLETADA) {
-            List<EmisionResponse.EntradaDTO> entradas = entradasClient.obtenerEntradasPorOrden(orden.getId().toString());
+            List<EmisionResponse.EntradaDTO> entradas = Futures.join(
+                    entradasClient.obtenerEntradasPorOrden(orden.getId().toString()));
             return new ConfirmacionPagoResponse(
                     orden.getId(),
                     orden.getEstado(),
@@ -192,7 +194,7 @@ public class ReservaService {
             PagoRequest pagoRequest = new PagoRequest(orden.getMontoTotal(), orden.getId().toString(), metodoPago);
             PagoResponse pagoResponse;
             try {
-                pagoResponse = pasarelaClient.procesarPago(pagoRequest);
+                pagoResponse = Futures.join(pasarelaClient.procesarPago(pagoRequest));
             } catch (Exception e) {
                 transaccionService.revertirAEstadoReservado(ordenId);
                 throw e;
@@ -227,7 +229,7 @@ public class ReservaService {
                 asientos
         );
 
-        EmisionResponse emisionResp = entradasClient.emitirEntradas(emisionReq);
+        EmisionResponse emisionResp = Futures.join(entradasClient.emitirEntradas(emisionReq));
         List<EmisionResponse.EntradaDTO> entradas = (emisionResp != null && emisionResp.entradas() != null)
                 ? emisionResp.entradas()
                 : List.of();
@@ -251,7 +253,7 @@ public class ReservaService {
         OrdenCompra orden = transaccionService.obtenerOrden(ordenId);
         List<EmisionResponse.EntradaDTO> entradas = List.of();
         if (orden.getEstado() == EstadoOrden.COMPLETADA || orden.getEstado() == EstadoOrden.PAGO_CONFIRMADO) {
-            entradas = entradasClient.obtenerEntradasPorOrden(orden.getId().toString());
+            entradas = Futures.join(entradasClient.obtenerEntradasPorOrden(orden.getId().toString()));
         }
         return new ConfirmacionPagoResponse(
                 orden.getId(),

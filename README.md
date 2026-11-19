@@ -205,12 +205,16 @@ La configuración principal está en los `application.properties` de cada servic
 | compras | `compras-service/compras-service/src/main/resources/application.properties` | `spring.datasource.url` | `jdbc:postgresql://localhost:5433/db_compras` |
 | compras | ídem | `spring.datasource.username` | `postgres` |
 | compras | ídem | `spring.datasource.password` | `postgrespassword` |
-| compras | ídem | `eventos.service.url` | `http://localhost:8081` |
-| compras | ídem | `pasarela.service.url` | `http://localhost:8084` |
-| compras | ídem | `entradas.service.url` | `http://localhost:8083` |
+| compras | ídem | `app.services.eventos.url` | `http://localhost:8081` |
+| compras | ídem | `app.services.pasarela.url` | `http://localhost:8084` |
+| compras | ídem | `app.services.entradas.url` | `http://localhost:8083` |
 | compras | ídem | `compras.reserva.minutos` | `10` |
 | compras | ídem | `compras.limite-entradas-por-cliente` | `4` |
 | entradas | `entradas-service/src/main/resources/application.properties` | `spring.datasource.url` | `jdbc:postgresql://localhost:5433/db_entradas` |
+| entradas | ídem | `app.services.compras.url` | `http://localhost:8082` |
+| entradas | ídem | `app.services.eventos.url` | `http://localhost:8081` |
+| entradas | ídem | `app.services.pasarela.url` | `http://localhost:8084` |
+| eventos | ídem (`eventos-service/...`) | `app.services.entradas.url` | `http://localhost:8083` |
 | gateway | `api-gateway/src/main/resources/application.yml` | `server.port` | `8080` |
 
 Si cambiás los puertos o las URLs de las bases, actualizá también las rutas del gateway y las

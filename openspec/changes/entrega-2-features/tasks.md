@@ -9,7 +9,7 @@
 - [x] 0.5 Reescribir `docs/adr/0009-seguridad-jwt.md`: JWT/RBAC centralizado en `api-gateway`, sin `auth-service` ni `db_auth`.
 - [x] 0.6 Crear `docs/adr/0010-mensajeria-asincrona.md`: RabbitMQ topic, consumidores idempotentes, reintentos simples, sin DLQ.
 - [x] 0.7 Crear `docs/adr/0011-contenedores-y-prueba-de-carga.md`: cinco contenedores de servicio, compose completo y JMeter.
-- [ ] 0.8 Agregar en `application.yml` de cada servicio las propiedades `app.services.*.url`, `spring.rabbitmq.*`, `spring.data.redis.*` y `management.endpoints.web.exposure.include=health`.
+- [x] 0.8 Agregar en `application.yml` de cada servicio las propiedades `app.services.*.url`, `spring.rabbitmq.*`, `spring.data.redis.*` y `management.endpoints.web.exposure.include=health`.
 - [x] 0.9 Verificar que `docs/adr/0001`–`0004` siguen vigentes y citarlos desde `design.md`.
 
 ## 1. Seguridad JWT y roles (gateway ya implementado)
@@ -18,36 +18,36 @@
 - [x] 1.2 `POST /api/auth/login` valida credenciales BCrypt y devuelve JWT con `sub`, `roles` y expiración de 1 hora.
 - [x] 1.3 `JwtTokenProvider` firma HS256 usando `jwt.secret` y expone `validarToken`, `obtenerUserName` y `obtenerRoles`.
 - [x] 1.4 `JwtAuthenticationFilter` + `SecurityConfig` (WebFlux) con matriz inicial de rutas públicas y por rol.
-- [ ] 1.5 Ampliar `JwtAuthenticationFilter` para mutar el request y agregar `X-User-Id` y `X-User-Roles`.
-- [ ] 1.6 Ampliar `SecurityConfig` con `/api/fila/**`, `/api/compras/metricas/**`, `/api/entradas/devoluciones/*/rechazar` y `/api/compras/{id}/compensar`.
+- [x] 1.5 Ampliar `JwtAuthenticationFilter` para mutar el request y agregar `X-User-Id` y `X-User-Roles`.
+- [x] 1.6 Ampliar `SecurityConfig` con `/api/fila/**`, `/api/compras/metricas/**`, `/api/entradas/devoluciones/*/rechazar` y `/api/compras/{id}/compensar`.
 - [x] 1.7 `docs/openapi.yaml` documenta `bearerAuth`, `/api/auth/login` y respuestas 401/403.
-- [ ] 1.8 Tomar el `clienteId` de `X-User-Id` en reservas, devoluciones y consulta de entradas; ignorar un parámetro distinto.
-- [ ] 1.9 **Tests:** login correcto, token expirado, firma inválida, rol insuficiente (403), suplantación de `clienteId` y tests existentes de los servicios.
+- [x] 1.8 Tomar el `clienteId` de `X-User-Id` en reservas, devoluciones y consulta de entradas; ignorar un parámetro distinto.
+- [x] 1.9 **Tests:** login correcto, token expirado, firma inválida, rol insuficiente (403), suplantación de `clienteId` y tests existentes de los servicios.
 
 ## 2. RabbitMQ y eventos de dominio
 
-- [ ] 2.1 Agregar `spring-boot-starter-amqp` y configuración de exchange/colas en los servicios que publican o consumen.
-- [ ] 2.2 Crear el DTO inmutable `DomainEvent` con `eventId`, `type`, `aggregateId`, `payload`, `correlationId` y `occurredAt`.
-- [ ] 2.3 Implementar `DomainEventPublisher` con `@TransactionalEventListener(AFTER_COMMIT)` y `@Async("eventPublisherExecutor")`, `RabbitTemplate` y `Jackson2JsonMessageConverter`.
-- [ ] 2.4 Declarar `ticketya.topic` y las colas `notificaciones.q`, `metricas.q`, `invalidacion-cache.q` con sus `@QueueBinding`.
-- [ ] 2.5 Implementar consumidores esqueleto en `entradas-service` (notificaciones), `compras-service` (métricas) y `eventos-service` (invalidación de caché).
-- [ ] 2.6 Agregar dedupe con clave Redis `seen:{cola}:{eventId}` TTL 24 h y `ack` de duplicados.
-- [ ] 2.7 Configurar `SimpleRetryPolicy(3)` + `FixedBackOffPolicy(1000)` por cola y log ERROR con payload al agotar intentos, sin DLQ.
-- [ ] 2.8 **Tests:** publicación tras commit, evento duplicado procesado una vez, reintento agotado registrado y publisher asíncrono que no retrasa la respuesta.
+- [x] 2.1 Agregar `spring-boot-starter-amqp` y configuración de exchange/colas en los servicios que publican o consumen.
+- [x] 2.2 Crear el DTO inmutable `DomainEvent` con `eventId`, `type`, `aggregateId`, `payload`, `correlationId` y `occurredAt`.
+- [x] 2.3 Implementar `DomainEventPublisher` con `@TransactionalEventListener(AFTER_COMMIT)` y `@Async("eventPublisherExecutor")`, `RabbitTemplate` y `Jackson2JsonMessageConverter`.
+- [x] 2.4 Declarar `ticketya.topic` y las colas `notificaciones.q`, `metricas.q`, `invalidacion-cache.q` con sus `@QueueBinding`.
+- [x] 2.5 Implementar consumidores esqueleto en `entradas-service` (notificaciones), `compras-service` (métricas) y `eventos-service` (invalidación de caché).
+- [x] 2.6 Agregar dedupe con clave Redis `seen:{cola}:{eventId}` TTL 24 h y `ack` de duplicados.
+- [x] 2.7 Configurar `SimpleRetryPolicy(3)` + `FixedBackOffPolicy(1000)` por cola y log ERROR con payload al agotar intentos, sin DLQ.
+- [x] 2.8 **Tests:** publicación tras commit, evento duplicado procesado una vez, reintento agotado registrado y publisher asíncrono que no retrasa la respuesta.
 
 ## 3. Correlación, logs y health
 
-- [ ] 3.1 Agregar `logstash-logback-encoder` y `logback-spring.xml` con JSON en stdout en los cinco servicios.
-- [ ] 3.2 Implementar correlación: `WebFilter` en `api-gateway` y `OncePerRequestFilter` en los servicios; genera UUID si falta, escribe MDC, propaga header y limpia MDC en `finally`.
-- [ ] 3.3 Copiar `correlationId` del MDC a los headers de Rabbit en el publisher y restaurarlo en los consumidores.
-- [ ] 3.4 Exponer `/actuator/health` y verificar que responda `UP` en cada servicio.
-- [ ] 3.5 **Tests:** petición sin correlation ID genera uno, petición con ID lo conserva, MDC queda limpio y logs incluyen `service` + `correlationId`.
+- [x] 3.1 Agregar `logstash-logback-encoder` y `logback-spring.xml` con JSON en stdout en los cinco servicios.
+- [x] 3.2 Implementar correlación: `WebFilter` en `api-gateway` y `OncePerRequestFilter` en los servicios; genera UUID si falta, escribe MDC, propaga header y limpia MDC en `finally`.
+- [x] 3.3 Copiar `correlationId` del MDC a los headers de Rabbit en el publisher y restaurarlo en los consumidores.
+- [x] 3.4 Exponer `/actuator/health` y verificar que responda `UP` en cada servicio.
+- [x] 3.5 **Tests:** petición sin correlation ID genera uno, petición con ID lo conserva, MDC queda limpio y logs incluyen `service` + `correlationId`.
 
 ## 4. Saga de compra, resiliencia y compensaciones
 
-- [ ] 4.1 Crear beans `WebClient` con `connectTimeout=2s`/`responseTimeout=2s` y migrar los `RestClient.create("http://localhost:...")` de `compras-service`, `entradas-service` y `eventos-service`.
-- [ ] 4.2 Agregar dependencias Resilience4j y configurar instancias `paymentGateway`, `ticketService` y `eventService` en `application.yml`.
-- [ ] 4.3 Anotar los clientes con `@Retry`, `@TimeLimiter` (métodos `CompletableFuture`) y `@CircuitBreaker(fallbackMethod=...)`; implementar los fallbacks de `design.md` D4.
+- [x] 4.1 Crear beans `WebClient` con `connectTimeout=2s`/`responseTimeout=2s` y migrar los `RestClient.create("http://localhost:...")` de `compras-service`, `entradas-service` y `eventos-service`.
+- [x] 4.2 Agregar dependencias Resilience4j y configurar instancias `paymentGateway`, `ticketService` y `eventService` en `application.yml`.
+- [x] 4.3 Anotar los clientes con `@Retry`, `@TimeLimiter` (métodos `CompletableFuture`) y `@CircuitBreaker(fallbackMethod=...)`; implementar los fallbacks de `design.md` D4.
 - [ ] 4.4 Extraer `CompraSagaService` desde `ReservaService.confirmarPago`: reserva → pago → emisión → confirmación en un `try`, compensación en un `catch`.
 - [ ] 4.5 Agregar `DELETE /api/entradas/orden/{ordenCompraId}` para borrar entradas emitidas durante la compensación.
 - [ ] 4.6 Agregar `POST /api/compras/{id}/compensar` (rol `ROLE_ADMINISTRADOR`) y reutilizar `POST /api/pagos/reembolsar` de `pasarela-mock-service`.

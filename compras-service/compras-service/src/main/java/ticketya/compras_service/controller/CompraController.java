@@ -28,9 +28,14 @@ public class CompraController {
     @PostMapping("/reservar")
     public ResponseEntity<ReservaResponse> reservar(
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
             @RequestBody ReservaRequest request) {
+        // If gateway propagated X-User-Id, use it as clienteId (overrides body value)
+        ReservaRequest effectiveRequest = (xUserId != null && !xUserId.isBlank())
+                ? new ReservaRequest(xUserId, request.eventoId(), request.items())
+                : request;
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(reservaService.reservar(request, idempotencyKey));
+                .body(reservaService.reservar(effectiveRequest, idempotencyKey));
     }
 
     @PostMapping("/{id}/confirmar-pago")

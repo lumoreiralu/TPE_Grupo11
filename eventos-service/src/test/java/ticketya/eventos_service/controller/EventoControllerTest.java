@@ -6,6 +6,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import ticketya.eventos_service.client.EntradasClient;
 import ticketya.eventos_service.model.EstadoEvento;
 import ticketya.eventos_service.model.Evento;
 import ticketya.eventos_service.repository.EventoRepository;
@@ -36,6 +37,9 @@ class EventoControllerTest {
 
     @MockitoBean
     private EventoBusquedaService busquedaService;
+
+    @MockitoBean
+    private EntradasClient entradasClient;
 
     @Test
     void rechazaPublicarEventoSinPreciosPorSector() throws Exception {

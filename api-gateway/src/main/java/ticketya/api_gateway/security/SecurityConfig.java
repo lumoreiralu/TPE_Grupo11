@@ -25,14 +25,19 @@ public class SecurityConfig {
                 .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                //rutas publicas (login, openapi/swagger)
-                .pathMatchers("/api/auth/login", "/v3/api-docs/**", "/swagger-ui/**", "/webjars/**").permitAll()
+                //rutas publicas (login, openapi/swagger, health)
+                .pathMatchers("/api/auth/login", "/v3/api-docs/**", "/swagger-ui/**", "/webjars/**", "/actuator/**", "/fallback/**").permitAll()
                 .pathMatchers("/api/eventos/publicados/**").permitAll()
 
                 //matriz de accesos por rol
                 .pathMatchers("/api/lugares/**").hasAuthority("ROLE_ORGANIZADOR")
                 .pathMatchers("/api/entradas/validar-qr").hasAuthority("ROLE_PERSONAL_ACCESO")
-                .pathMatchers("/api/entradas/devoluciones/*/aprobar").hasAuthority("ROLE_ADMINISTRADOR")
+                .pathMatchers("/api/entradas/devoluciones/*/aprobar").hasAnyAuthority("ROLE_ADMINISTRADOR")
+                .pathMatchers("/api/entradas/devoluciones/*/rechazar").hasAnyAuthority("ROLE_ADMINISTRADOR")
+                .pathMatchers("/api/entradas/metricas/**").hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ORGANIZADOR")
+                .pathMatchers("/api/compras/metricas/**").hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ORGANIZADOR")
+                .pathMatchers("/api/compras/*/compensar").hasAuthority("ROLE_ADMINISTRADOR")
+                .pathMatchers("/api/fila/**").hasAnyAuthority("ROLE_CLIENTE")
 
                 //rutas de cliente y compra
                 .pathMatchers("/api/compras/**", "/api/entradas/cliente/**").hasAnyAuthority("ROLE_CLIENTE", "ROLE_ADMINISTRADOR")

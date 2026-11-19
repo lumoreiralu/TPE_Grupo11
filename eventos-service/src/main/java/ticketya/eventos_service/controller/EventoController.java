@@ -5,17 +5,17 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import ticketya.eventos_service.client.EntradasClient;
 import ticketya.eventos_service.model.EstadoEvento;
 import ticketya.eventos_service.model.Evento;
 import ticketya.eventos_service.model.TipoEvento;
 import ticketya.eventos_service.repository.EventoRepository;
 import ticketya.eventos_service.repository.LugarRepository;
 import ticketya.eventos_service.service.EventoBusquedaService;
-
-import java.math.BigDecimal;
-import java.util.Comparator;
+import ticketya.eventos_service.util.Futures;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,6 +25,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/eventos")
 public class EventoController {
+    private static final Logger log = LoggerFactory.getLogger(EventoController.class);
+
     @Autowired
     private EventoRepository eventoRepository;
 
@@ -33,6 +35,9 @@ public class EventoController {
 
     @Autowired
     private EventoBusquedaService busquedaService;
+
+    @Autowired
+    private EntradasClient entradasClient;
 
     @PostMapping
     public ResponseEntity<Evento> crearEvento(@RequestBody Evento evento) {
@@ -151,13 +156,9 @@ String ordenarPor) {
 
         //2. Notificar a entradas-service para cancelar entradas y liberar asientos
         try{
-            RestClient.create("http://localhost:8083")
-                    .post()
-                    .uri("/api/entradas/eventos/{eventoId}/cancelar", id)
-                    .retrieve()
-                    .toBodilessEntity();
+            Futures.join(entradasClient.cancelarEntradasPorEvento(id));
         } catch(Exception e){
-            System.err.println("Aviso al notitifcar a entradas-service: " + e.getMessage());
+            log.error("Aviso al notificar a entradas-service para el evento {}: {}", id, e.getMessage());
         }
         return ResponseEntity.ok("Evento cancelado y proceso de reintegros disparado");
     }

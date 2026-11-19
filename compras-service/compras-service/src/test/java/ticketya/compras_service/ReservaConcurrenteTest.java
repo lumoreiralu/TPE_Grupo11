@@ -18,6 +18,7 @@ import ticketya.compras_service.client.EventoDTO.PrecioSectorDTO;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,7 +55,7 @@ class ReservaConcurrenteTest {
                 "PUBLICADO",
                 List.of(new PrecioSectorDTO(sectorIdPrueba, new BigDecimal("30000.00"))),
                 List.of(new EventoDTO.SectorInfoDTO(sectorIdPrueba, "Platea Numerada", "NUMERADO", 100)));
-        when(eventosClient.obtenerEvento(anyString())).thenReturn(eventoMock);
+        when(eventosClient.obtenerEvento(anyString())).thenReturn(CompletableFuture.completedFuture(eventoMock));
 
         int cantidadHilos = 20;
         ExecutorService executor = Executors.newFixedThreadPool(cantidadHilos);

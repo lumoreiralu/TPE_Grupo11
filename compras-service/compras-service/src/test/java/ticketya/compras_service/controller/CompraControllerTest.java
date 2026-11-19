@@ -127,4 +127,31 @@ class CompraControllerTest {
 
         verify(bloqueoAsientoRepo).deleteByClaveAsiento("evt-1|sector-1|A|1");
     }
+
+    @Test
+    void reservarIgnoraClienteIdDelBodySiVieneXUserId() throws Exception {
+        ReservaResponse respuesta = new ReservaResponse(
+                UUID.randomUUID(),
+                EstadoOrden.RESERVADA_TEMPORAL,
+                LocalDateTime.now().plusMinutes(10),
+                new BigDecimal("100.00"),
+                600);
+        when(reservaService.reservar(any(), any())).thenReturn(respuesta);
+
+        mockMvc.perform(post("/api/compras/reservar")
+                        .header("X-User-Id", "usuario-autenticado")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "clienteId": "usuario-suplantado",
+                                  "eventoId": "evt-1",
+                                  "items": [{"sectorId": "sector-1", "fila": "A", "asiento": 1}]
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(reservaService).reservar(org.mockito.ArgumentMatchers.argThat(req ->
+                "usuario-autenticado".equals(req.clienteId())
+        ), any());
+    }
 }

@@ -22,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -55,7 +56,8 @@ public class DevolucionServiceTest {
 
         when(entradaRepository.findById(entradaId)).thenReturn(Optional.of(entrada));
         // Evento empieza en 24 horas (menos de 72 hs)
-        when(eventosClient.obtenerFechaEvento("EVT-1")).thenReturn(LocalDateTime.now().plusHours(24));
+        when(eventosClient.obtenerFechaEvento("EVT-1"))
+                .thenReturn(CompletableFuture.completedFuture(LocalDateTime.now().plusHours(24)));
         assertThrows(ResponseStatusException.class, () -> entradaService.solicitarDevolucion(entradaId, "CLI-123", "Imprevisto laboral")
         );
     }
@@ -72,7 +74,8 @@ public class DevolucionServiceTest {
 
         when(entradaRepository.findById(entradaId)).thenReturn(Optional.of(entrada));
         // Evento empieza en 5 días (más de 72 hs)
-        when(eventosClient.obtenerFechaEvento("EVT-1")).thenReturn(LocalDateTime.now().plusDays(5));
+        when(eventosClient.obtenerFechaEvento("EVT-1"))
+                .thenReturn(CompletableFuture.completedFuture(LocalDateTime.now().plusDays(5)));
         when(solicitudRepo.save(any(SolicitudDevolucion.class))).thenAnswer(i -> i.getArgument(0));
 
         SolicitudDevolucion resultado = entradaService.solicitarDevolucion(entradaId, "CLI-123", "Viaje de trabajo");
@@ -101,6 +104,10 @@ public class DevolucionServiceTest {
 
         when(solicitudRepo.findById(solicitudId)).thenReturn(Optional.of(solicitud));
         when(entradaRepository.findById(entradaId)).thenReturn(Optional.of(entrada));
+        when(comprasClient.liberarAsiento("EVT-1", "Platea", "1", 5))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        when(pasarelaClient.solicitarReembolso("ORD-99", "CLI-123"))
+                .thenReturn(CompletableFuture.completedFuture(null));
 
         entradaService.aprobarDevolucion(solicitudId, "Aprobado ok");
         assertEquals(EstadoEntrada.CANCELADA, entrada.getEstado());

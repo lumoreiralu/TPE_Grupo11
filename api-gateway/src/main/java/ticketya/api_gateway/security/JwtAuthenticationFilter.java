@@ -37,8 +37,13 @@ public class JwtAuthenticationFilter implements WebFilter {
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(username, null, authorities);
+                //mutate request to add X-User-Id and X-User-Roles headers for downstream services
+                ServerWebExchange mutatedExchange = exchange.mutate()
+                        .request(r -> r.header("X-User-Id", username)
+                                       .header("X-User-Roles", String.join(",", roles)))
+                        .build();
                 //carga la autenticacion en el contexto reactivo de spring security
-                return chain.filter(exchange).contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
+                return chain.filter(mutatedExchange).contextWrite(ReactiveSecurityContextHolder.withAuthentication(authentication));
             }
         }
         //si no hay token o es invalido, continua con la cadena de filtros sin autenticacion
