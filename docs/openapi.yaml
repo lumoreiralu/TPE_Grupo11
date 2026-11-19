@@ -374,9 +374,6 @@ paths:
                   tokenType:
                     type: string
                     example: "Bearer"
-                  expiresInSeconds:
-                    type: integer
-                    example: 3600
         "401":
           description: Credenciales inválidas o cuenta inexistente.
 

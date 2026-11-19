@@ -638,7 +638,9 @@ Postman, seleccioná ese mismo cliente en la UI o consultá
 ## Documentación adicional
 
 - Decisiones de arquitectura: `docs/adr/`.
-- Cambio funcional y checklist: `openspec/changes/core-ticket-purchase/`.
+- Especificaciones globales: `openspec/specs/ticket-sales/spec.md`.
+- Historias de usuario y diagramas (parte 1): `docs/user-stories.md`, `docs/diagramas.md`, `docs/diagrama-er-microservicios.md`.
+- Cambio funcional y checklist (parte 1, archivado): `openspec/changes/archive/2026-11-18-core-ticket-purchase/`.
 - Detalle del frontend: `frontend/README.md`.
 - Colección de requests: `postman/TicketYa.postman_collection.json`.
 
