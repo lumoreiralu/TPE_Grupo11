@@ -1,12 +1,15 @@
 package com.ticketya.entradas.controller;
 
 import com.ticketya.entradas.dto.EntradaResponseDTO;
+import com.ticketya.entradas.dto.ValidarQrRequest;
+import com.ticketya.entradas.dto.ValidarQrResponse;
 import com.ticketya.entradas.model.EstadoEntrada;
 import com.ticketya.entradas.model.SolicitudDevolucion;
 import com.ticketya.entradas.service.EntradaService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -60,5 +63,25 @@ class EntradaControllerTest {
                 .andExpect(status().isOk());
 
         verify(entradaService).obtenerPorCliente("usuario-real");
+    }
+
+    @Test
+    void validarQrPropagaIdentidadYRolDelValidador() throws Exception {
+        ValidarQrResponse response = new ValidarQrResponse(
+                UUID.randomUUID(), "cliente-1", "evento-1", "Platea",
+                EstadoEntrada.USADA, LocalDateTime.now(), "Acceso autorizado"
+        );
+        when(entradaService.validarQr(any(ValidarQrRequest.class), eq("validador-1"), eq("ROLE_PERSONAL_ACCESO")))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/entradas/validar-qr")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"qrHash\":\"hash-qr\",\"eventoId\":\"evento-1\"}")
+                        .header("X-User-Id", "validador-1")
+                        .header("X-User-Roles", "ROLE_PERSONAL_ACCESO"))
+                .andExpect(status().isOk());
+
+        verify(entradaService).validarQr(
+                new ValidarQrRequest("hash-qr", "evento-1"), "validador-1", "ROLE_PERSONAL_ACCESO");
     }
 }

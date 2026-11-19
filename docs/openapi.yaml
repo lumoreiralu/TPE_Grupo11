@@ -322,6 +322,23 @@ paths:
         - Control de Acceso
       security:
         - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - qrHash
+              properties:
+                qrHash:
+                  type: string
+                  description: Hash SHA-256 contenido en el código QR de la entrada.
+                  example: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+                eventoId:
+                  type: string
+                  description: Identificador del evento del recinto; si se envía debe coincidir con el QR.
+                  example: "evento-1"
       responses:
         "200":
           description: Entrada válida. Se registra fecha/hora de ingreso y se registra como utilizada.

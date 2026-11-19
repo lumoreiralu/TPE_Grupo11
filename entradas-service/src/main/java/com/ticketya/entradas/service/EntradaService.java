@@ -9,6 +9,7 @@ import com.ticketya.entradas.dto.EntradaResponseDTO;
 import com.ticketya.entradas.dto.ItemEntradaEmision;
 import com.ticketya.entradas.dto.ValidarQrRequest;
 import com.ticketya.entradas.dto.ValidarQrResponse;
+import com.ticketya.entradas.filter.CorrelationIdFilter;
 import com.ticketya.entradas.model.Entrada;
 import com.ticketya.entradas.model.EstadoEntrada;
 import com.ticketya.entradas.model.EstadoSolicitudDevolucion;
@@ -18,11 +19,14 @@ import com.ticketya.entradas.repository.SolicitudDevolucionRepository;
 import com.ticketya.entradas.util.Futures;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -233,6 +237,23 @@ public class EntradaService {
     // 5. VALIDACIÓN DE ENTRADAS POR QR
     @Transactional
     public ValidarQrResponse validarQr(ValidarQrRequest request, String validadorId, String roles) {
+        try {
+            ValidarQrResponse response = validarQrInterno(request);
+            registrarIntentoValidacion("AUTORIZADO", HttpStatus.OK, "Acceso autorizado",
+                    request, validadorId, roles, response.entradaId());
+            return response;
+        } catch (ResponseStatusException e) {
+            registrarIntentoValidacion("DENEGADO", e.getStatusCode(), e.getReason(),
+                    request, validadorId, roles, null);
+            throw e;
+        } catch (RuntimeException e) {
+            registrarIntentoValidacion("ERROR", HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage(),
+                    request, validadorId, roles, null);
+            throw e;
+        }
+    }
+
+    private ValidarQrResponse validarQrInterno(ValidarQrRequest request) {
         Entrada entrada = entradaRepository.findByCodigoQrHash(request.qrHash())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "QR inexistente"));
 
@@ -249,28 +270,32 @@ public class EntradaService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Entrada ya utilizada - reingreso denegado");
         }
 
-        // Evento vigente
+        if (entrada.getEstado() != EstadoEntrada.EMITIDA) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La entrada no está habilitada para ingresar");
+        }
+
+        LocalDate hoy = LocalDate.now();
         try {
             LocalDateTime fechaEvento = Futures.join(eventosClient.obtenerFechaEvento(entrada.getEventoId()));
-            if (fechaEvento != null && LocalDateTime.now().isAfter(fechaEvento.plusHours(24))) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El evento ya ha finalizado");
+            if (fechaEvento == null || !fechaEvento.toLocalDate().isEqual(hoy)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El evento no está vigente");
             }
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {
-            log.warn("No se pudo verificar fecha de evento {}: {}", entrada.getEventoId(), e.getMessage());
+            log.warn("No se pudo verificar la fecha del evento {}: {}", entrada.getEventoId(), e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "No se pudo verificar la vigencia del evento");
         }
 
         entrada.setEstado(EstadoEntrada.USADA);
         entrada.setFechaIngreso(LocalDateTime.now());
 
         try {
-            entradaRepository.save(entrada);
-        } catch (org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+            entradaRepository.saveAndFlush(entrada);
+        } catch (OptimisticLockingFailureException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Doble escaneo concurrente detectado");
         }
-
-        log.info("Acceso validado para entrada {} por validador {}", entrada.getId(), validadorId);
 
         return new ValidarQrResponse(
                 entrada.getId(),
@@ -281,5 +306,28 @@ public class EntradaService {
                 entrada.getFechaIngreso(),
                 "Acceso autorizado"
         );
+    }
+
+    private void registrarIntentoValidacion(String resultado, Object codigo, String motivo,
+                                            ValidarQrRequest request, String validadorId,
+                                            String roles, UUID entradaId) {
+        String correlationId = MDC.get(CorrelationIdFilter.MDC_CORRELATION_ID_KEY);
+        String mensaje = "intento_validacion_qr resultado={} codigo={} correlationId={} validador={} roles={} entradaId={} qrHash={} motivo={}";
+        Object[] argumentos = {
+                resultado,
+                codigo,
+                correlationId != null ? correlationId : "-",
+                validadorId != null ? validadorId : "-",
+                roles != null && !roles.isBlank() ? roles : "DESCONOCIDO",
+                entradaId != null ? entradaId : "-",
+                request != null && request.qrHash() != null ? request.qrHash() : "-",
+                motivo != null ? motivo : "-"
+        };
+
+        if ("AUTORIZADO".equals(resultado)) {
+            log.info(mensaje, argumentos);
+        } else {
+            log.warn(mensaje, argumentos);
+        }
     }
 }

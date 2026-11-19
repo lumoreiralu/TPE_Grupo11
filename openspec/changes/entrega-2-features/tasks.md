@@ -75,11 +75,11 @@
 
 ## 7. Validación de entradas por QR (R9)
 
-- [ ] 7.1 Implementar `POST /api/entradas/validar-qr` con rol `ROLE_PERSONAL_ACCESO` (ya documentado, aún sin código).
-- [ ] 7.2 Buscar la entrada por hash, exigir `EMITIDA` y evento vigente, cambiar a `USADA`, registrar fecha/hora de ingreso y usar `@Version` para doble escaneo concurrente.
-- [ ] 7.3 Rechazar con 409 reingreso (`USADA`), 404 QR inexistente, 400 QR de otro evento y 400 entrada cancelada.
-- [ ] 7.4 Registrar cada intento con `correlationId` y rol del validador.
-- [ ] 7.5 **Tests:** primer ingreso autoriza, dos escaneos simultáneos solo uno pasa, reingreso alerta, QR inválido/ajeno/cancelado se deniegan, `QrCodeGeneratorTest` sigue pasando.
+- [x] 7.1 Implementar `POST /api/entradas/validar-qr` con rol `ROLE_PERSONAL_ACCESO` (ya documentado, aún sin código).
+- [x] 7.2 Buscar la entrada por hash, exigir `EMITIDA` y evento vigente, cambiar a `USADA`, registrar fecha/hora de ingreso y usar `@Version` para doble escaneo concurrente.
+- [x] 7.3 Rechazar con 409 reingreso (`USADA`), 404 QR inexistente, 400 QR de otro evento y 400 entrada cancelada.
+- [x] 7.4 Registrar cada intento con `correlationId` y rol del validador.
+- [x] 7.5 **Tests:** primer ingreso autoriza, dos escaneos simultáneos solo uno pasa, reingreso alerta, QR inválido/ajeno/cancelado se deniegan, `QrCodeGeneratorTest` sigue pasando.
 
 ## 8. Fila virtual (R10)
 
