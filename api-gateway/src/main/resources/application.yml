@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
 
 spring:
   application:
@@ -11,7 +11,7 @@ spring:
           routes:
             # 1. Eventos y Catálogo
             - id: eventos-service
-              uri: http://localhost:8081
+              uri: ${APP_SERVICES_EVENTOS_URL:http://localhost:8081}
               predicates:
                 - Path=/api/eventos/**
               filters:
@@ -26,46 +26,56 @@ spring:
                     statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
 
             - id: lugares-service
-              uri: http://localhost:8081
+              uri: ${APP_SERVICES_EVENTOS_URL:http://localhost:8081}
               predicates:
                 - Path=/api/lugares/**
 
             # 2. Compras y Reservas
             - id: compras-service
-              uri: http://localhost:8082
+              uri: ${APP_SERVICES_COMPRAS_URL:http://localhost:8082}
               predicates:
                 - Path=/api/compras/**
 
+            # 2b. Fila virtual (compras-service)
+            - id: fila-service
+              uri: ${APP_SERVICES_COMPRAS_URL:http://localhost:8082}
+              predicates:
+                - Path=/api/fila/**
+
             # 3. Entradas y QR
             - id: entradas-service
-              uri: http://localhost:8083
+              uri: ${APP_SERVICES_ENTRADAS_URL:http://localhost:8083}
               predicates:
                 - Path=/api/entradas/**
 
             # 4. Pasarela de Pagos Mock
             - id: pasarela-mock-service
-              uri: http://localhost:8084
+              uri: ${APP_SERVICES_PASARELA_URL:http://localhost:8084}
               predicates:
                 - Path=/api/pagos/**
   rabbitmq:
-    host: rabbitmq
-    port: 5672
-    username: guest
-    password: guest
+    host: ${SPRING_RABBITMQ_HOST:localhost}
+    port: ${SPRING_RABBITMQ_PORT:5672}
+    username: ${SPRING_RABBITMQ_USERNAME:guest}
+    password: ${SPRING_RABBITMQ_PASSWORD:guest}
   data:
     redis:
-      host: redis
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
 management:
   endpoints:
     web:
       exposure:
         include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 jwt:
-  secret: "ticketya-secret-key-for-jwt-signing-2024"
-  expiracion: 3600000
+  secret: ${JWT_SECRET:ticketya-secret-key-for-jwt-signing-2024}
+  expiracion: ${JWT_EXPIRACION:3600000}
 
 resilience4j:
   circuitbreaker:
@@ -80,9 +90,3 @@ resilience4j:
     instances:
       eventService:
         timeout-duration: 1500ms
-
-            # 2b. Fila virtual (compras-service)
-            - id: fila-service
-              uri: http://localhost:8082
-              predicates:
-                - Path=/api/fila/**

@@ -1,21 +1,25 @@
-version: '3.8'
-
 services:
-  # Base de datos NoSQL para el Servicio de Eventos y Catálogo
+  # =========================
+  # Infraestructura / datos
+  # =========================
   mongo-eventos:
-    image: mongo:latest
+    image: mongo:7
     container_name: ticketya-mongo-eventos
-    restart: always
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 15s
+      timeout: 15s
+      retries: 10
 
-  # Base de datos Relacional para Compras y Entradas
   postgres-db:
     image: postgres:15-alpine
     container_name: ticketya-postgres
-    restart: always
+    restart: unless-stopped
     ports:
       - "5433:5432"
     environment:
@@ -25,16 +29,278 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_ticketya"]
+      interval: 10s
+      timeout: 15s
+      retries: 10
 
-  # Buzón de correo local para notificaciones (SMTP 1025 / UI http://localhost:8025)
+  redis:
+    image: redis:7-alpine
+    container_name: ticketya-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 15s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ticketya-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 15s
+      retries: 10
+
   mailhog:
     image: mailhog/mailhog:latest
     container_name: ticketya-mailhog
-    restart: always
+    restart: unless-stopped
     ports:
       - "1025:1025"
       - "8025:8025"
 
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: ticketya-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:3100/ready || exit 1"]
+      interval: 10s
+      timeout: 15s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: ticketya-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      loki:
+        condition: service_healthy
+
+  # =========================
+  # Microservicios Spring Boot
+  # =========================
+  api-gateway:
+    build:
+      context: ./api-gateway
+    container_name: ticketya-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_PORT: 8080
+      APP_SERVICES_EVENTOS_URL: http://eventos-service:8081
+      APP_SERVICES_COMPRAS_URL: http://compras-service:8082
+      APP_SERVICES_ENTRADAS_URL: http://entradas-service:8083
+      APP_SERVICES_PASARELA_URL: http://pasarela-mock-service:8084
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on:
+      eventos-service:
+        condition: service_healthy
+      compras-service:
+        condition: service_healthy
+      entradas-service:
+        condition: service_healthy
+      pasarela-mock-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      loki:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 40s
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: service=api-gateway,job=ticketya
+
+  eventos-service:
+    build:
+      context: ./eventos-service
+    container_name: ticketya-eventos-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_DATA_MONGODB_URI: mongodb://mongo-eventos:27017/db_eventos
+      SPRING_MONGODB_URI: mongodb://mongo-eventos:27017/db_eventos
+      APP_SERVICES_ENTRADAS_URL: http://entradas-service:8083
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on:
+      mongo-eventos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      loki:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 40s
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: service=eventos-service,job=ticketya
+
+  compras-service:
+    build:
+      context: ./compras-service/compras-service
+    container_name: ticketya-compras-service
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      SERVER_PORT: 8082
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/db_compras
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgrespassword
+      APP_SERVICES_EVENTOS_URL: http://eventos-service:8081
+      APP_SERVICES_PASARELA_URL: http://pasarela-mock-service:8084
+      APP_SERVICES_ENTRADAS_URL: http://entradas-service:8083
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      loki:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 40s
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: service=compras-service,job=ticketya
+
+  entradas-service:
+    build:
+      context: ./entradas-service
+    container_name: ticketya-entradas-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      SERVER_PORT: 8083
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/db_entradas
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgrespassword
+      APP_SERVICES_COMPRAS_URL: http://compras-service:8082
+      APP_SERVICES_EVENTOS_URL: http://eventos-service:8081
+      APP_SERVICES_PASARELA_URL: http://pasarela-mock-service:8084
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_DATA_REDIS_HOST: redis
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mailhog:
+        condition: service_started
+      loki:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 40s
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: service=entradas-service,job=ticketya
+
+  pasarela-mock-service:
+    build:
+      context: ./pasarela-mock-service
+    container_name: ticketya-pasarela-mock-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      SERVER_PORT: 8084
+      SPRING_DATA_REDIS_HOST: redis
+    depends_on:
+      redis:
+        condition: service_healthy
+      loki:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8084/actuator/health | grep -q UP"]
+      interval: 15s
+      timeout: 15s
+      retries: 20
+      start_period: 30s
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: service=pasarela-mock-service,job=ticketya
+
+  # 11.4 - Frontend opcional servido por nginx en puerto 4200
+  frontend:
+    build:
+      context: ./frontend
+    container_name: ticketya-frontend
+    restart: unless-stopped
+    ports:
+      - "4200:80"
+    depends_on:
+      api-gateway:
+        condition: service_started
+
 volumes:
   mongo_data:
   postgres_data:
+  grafana_data:

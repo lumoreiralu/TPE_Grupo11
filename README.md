@@ -64,107 +64,96 @@ Cada servicio incluye el Maven Wrapper, por lo que no hace falta instalar Maven 
 
 ## Inicio rápido
 
-### 1. Levantar las bases de datos
+### Opción A: Stack completo con Docker Compose (recomendada, Entrega 2)
+
+> **Requisitos:** Docker Desktop/Engine con Docker Compose v2.  
+> **Logging driver Loki (ADR 0008 / 0011):** los servicios Spring envían logs a Loki con `logging.driver: loki` (`http://localhost:3100/loki/api/v1/push`). Si tu daemon no lo soporta, instalá el plugin una vez: `docker plugin install grafana/loki-docker-driver:2.9.4 --alias loki --grant-all-permissions`. Para un arranque sin plugin podés quitar los bloques `logging:` del `docker-compose.yml` (perdés bitácora centralizada en Grafana).
 
 Desde la raíz del repositorio:
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 docker compose ps
 ```
 
-Esto crea:
+Servicios expuestos:
 
-- MongoDB en `localhost:27017`, base `db_eventos`.
-- PostgreSQL en `localhost:5433`, usuario `postgres`, contraseña `postgrespassword`.
-- Bases `db_compras` y `db_entradas` mediante `init-scripts/init.sql`.
+| Componente | URL / Puerto | Notas |
+| --- | --- | --- |
+| API Gateway | `http://localhost:8080` | Punto de entrada único (`/actuator/health`) |
+| eventos-service | `http://localhost:8081` | Catálogo/lugares (MongoDB) |
+| compras-service | `http://localhost:8082` | Reservas, saga, fila virtual (PostgreSQL `db_compras`) |
+| entradas-service | `http://localhost:8083` | Entradas, QR, devoluciones (PostgreSQL `db_entradas`) |
+| pasarela-mock-service | `http://localhost:8084` | Pagos/reembolsos simulados |
+| Frontend (nginx, opcional) | `http://localhost:4200` | Sirve SPA y proxyea `/api` al gateway (tarea 11.4) |
+| MongoDB | `localhost:27017` | `db_eventos` |
+| PostgreSQL | `localhost:5433` | `postgres/postgrespassword`, BD `db_ticketya` (compat) + `db_compras` + `db_entradas` (`init-scripts/init.sql`) |
+| Redis | `localhost:6379` | Caché, fila, dedupe |
+| RabbitMQ | `localhost:5672` / UI `http://localhost:15672` | `guest/guest` |
+| MailHog | SMTP `localhost:1025` / UI `http://localhost:8025` | Correos de notificación |
+| Loki | `http://localhost:3100` | Almacenamiento de logs |
+| Grafana | `http://localhost:3000` | `admin/admin`, datasource Loki + dashboard "TicketYa Logs" (filtro `service` y `correlationId`) |
 
-Si usás una versión anterior de Docker, reemplazá `docker compose` por `docker-compose`.
-
-Para detener las bases sin borrar datos:
+Verificación rápida de health:
 
 ```bash
-docker compose down
+curl -s http://localhost:8080/actuator/health
+curl -s http://localhost:8081/actuator/health
+curl -s http://localhost:8082/actuator/health
+curl -s http://localhost:8083/actuator/health
+curl -s http://localhost:8084/actuator/health
 ```
 
-Para reiniciar desde cero, borrando los volúmenes:
+> **Nota volumen Postgres:** `init-scripts/init.sql` solo se ejecuta la primera vez que se crea el volumen `postgres_data`. Si ya tenías un volumen previo sin `db_compras`/`db_entradas`, recrealo con `docker compose down -v` (borra datos) o creá las BD manualmente.
+
+### Opción B: Desarrollo local (servicios con Maven + infra en Docker)
+
+Podés levantar solo infraestructura con compose y correr los Spring Boot localmente (útil para depurar). Asegurate de que Mongo/Postgres/Redis/Rabbit estén arriba y que las URLs por defecto (`localhost`) coincidan:
 
 ```bash
-docker compose down -v
+docker compose up -d mongo-eventos postgres-db redis rabbitmq mailhog loki grafana
 ```
 
-> `docker compose down -v` elimina los datos de MongoDB y PostgreSQL.
-
-### 2. Levantar los microservicios
-
-Cada servicio debe ejecutarse en una terminal separada. En Windows PowerShell usá
-`.\mvnw.cmd`; en Linux/macOS o Git Bash usá `./mvnw`.
+Luego iniciá los microservicios en terminales separadas. En Windows PowerShell usá `.\mvnw.cmd`; en Linux/macOS o Git Bash usá `./mvnw`.
 
 Orden recomendado:
 
-**Terminal 1 — eventos-service**
-
-```powershell
-cd eventos-service
-.\mvnw.cmd spring-boot:run
-```
+**Terminal 1 — eventos-service** (`:8081`)
 
 ```bash
 cd eventos-service
 ./mvnw spring-boot:run
 ```
 
-**Terminal 2 — entradas-service**
-
-```powershell
-cd entradas-service
-.\mvnw.cmd spring-boot:run
-```
+**Terminal 2 — entradas-service** (`:8083`)
 
 ```bash
 cd entradas-service
 ./mvnw spring-boot:run
 ```
 
-**Terminal 3 — pasarela-mock-service**
-
-```powershell
-cd pasarela-mock-service
-.\mvnw.cmd spring-boot:run
-```
+**Terminal 3 — pasarela-mock-service** (`:8084`)
 
 ```bash
 cd pasarela-mock-service
 ./mvnw spring-boot:run
 ```
 
-**Terminal 4 — compras-service**
-
-```powershell
-cd compras-service\compras-service
-.\mvnw.cmd spring-boot:run
-```
+**Terminal 4 — compras-service** (`:8082`, módulo Maven anidado)
 
 ```bash
 cd compras-service/compras-service
 ./mvnw spring-boot:run
 ```
 
-**Terminal 5 — api-gateway**
-
-```powershell
-cd api-gateway
-.\mvnw.cmd spring-boot:run
-```
+**Terminal 5 — api-gateway** (`:8080`, iniciar después de los servicios que enruta)
 
 ```bash
 cd api-gateway
 ./mvnw spring-boot:run
 ```
 
-El gateway debe iniciarse después de los servicios que enruta.
-
-### 3. Levantar el frontend
+### Frontend en desarrollo (Vite)
 
 ```bash
 cd frontend
@@ -172,26 +161,36 @@ npm install
 npm run dev
 ```
 
-Abrí `http://localhost:5173`.
+Abrí `http://localhost:5173`. Vite hace proxy de `/api` hacia `http://localhost:8080` (ver `VITE_GATEWAY_URL`). **No abras `frontend/index.html` directamente.** Para el frontend en Docker usá `http://localhost:4200` (Opción A).
 
-Vite hace proxy de `/api` hacia `http://localhost:8080`, así que en desarrollo no hace falta
-configurar CORS. El frontend debe servirse con Vite; **no abras `frontend/index.html` directamente**
-con el navegador ni con Live Server.
+### Smoke E2E manual (tarea 11.5)
 
-### 4. Verificar que el gateway responde
+Ejecutar con el stack levantado (Opción A o B + datos de prueba creados). Flujo sugerido vía gateway `http://localhost:8080` con los usuarios precargados de la sección [Capa de Seguridad](#-capa-de-seguridad-y-autenticación-jwt--rbac):
+
+1. **Login** `POST /api/auth/login` (`cliente1/cliente123`, `organizador1/org123`, `admin/admin123`, `puerta1/puerta123`).
+2. **Catálogo** `GET /api/eventos/publicados` y `GET /api/eventos/buscar`.
+3. **Fila (si alta demanda)** `POST /api/fila/join` → `GET /api/fila/turno` → obtener `paseId`.
+4. **Reserva** `POST /api/compras/reservar` (con `Idempotency-Key` y `paseId` si aplica) → **Pago** `POST /api/compras/{id}/confirmar-pago`.
+5. **QR** consultar entrada y validar `POST /api/entradas/validar-qr` (rol `ROLE_PERSONAL_ACCESO`).
+6. **Devolución** `POST /api/entradas/{id}/devolucion` → `POST /api/entradas/devoluciones/{id}/aprobar|rechazar`.
+7. **Cancelación** `POST /api/eventos/{id}/cancelar` (admin/organizador) y verificar reintegros/notificaciones.
+
+Usá la colección `postman/TicketYa.postman_collection.json` como base y anotá resultados/capturas en `postman/` o `docs/` (ver tareas 12.x).
+
+### Verificar UIs de infraestructura (tarea 11.6)
+
+- **RabbitMQ** `http://localhost:15672` (guest/guest): exchange `ticketya.topic`, colas `notificaciones.q`, `metricas.q`, `invalidacion-cache.q`.
+- **MailHog** `http://localhost:8025`: correos de confirmación/avisos generados por `entradas-service`.
+- **Grafana** `http://localhost:3000` (admin/admin): datasource Loki y dashboard "TicketYa Logs"; filtrar por label `service` y buscar por `correlationId`/texto `X-Correlation-ID`.
+
+### Detener / reiniciar
 
 ```bash
-curl http://localhost:8080/api/eventos/publicados
+docker compose down          # conserva datos
+docker compose down -v       # borra datos (Mongo, Postgres, Grafana)
 ```
 
-En Windows PowerShell:
-
-```powershell
-curl.exe http://localhost:8080/api/eventos/publicados
-```
-
-Si todavía no cargaste datos, la respuesta será `[]`. Usá la colección de Postman o la sección
-[Datos de prueba](#datos-de-prueba) para crear un evento publicado.
+## Configuración
 
 ## Configuración
 

@@ -107,13 +107,13 @@
 
 ## 11. Docker, compose y smoke E2E
 
-- [ ] 11.1 Crear un Dockerfile multi-stage para `api-gateway`, `eventos-service`, `compras-service`, `entradas-service` y `pasarela-mock-service`.
-- [ ] 11.2 Actualizar `docker-compose.yml` con los cinco servicios, Redis, RabbitMQ, Loki, Grafana, MailHog, MongoDB y PostgreSQL, healthchecks y logging driver `loki`.
-- [ ] 11.3 Agregar `db_compras` y `db_entradas` en `init-scripts/` conservando `db_ticketya` (sin `db_auth`).
-- [ ] 11.4 Agregar servicio `nginx:alpine` opcional para servir `frontend/` en el puerto 4200.
+- [x] 11.1 Crear un Dockerfile multi-stage para `api-gateway`, `eventos-service`, `compras-service`, `entradas-service` y `pasarela-mock-service`.
+- [x] 11.2 Actualizar `docker-compose.yml` con los cinco servicios, Redis, RabbitMQ, Loki, Grafana, MailHog, MongoDB y PostgreSQL, healthchecks y logging driver `loki`.
+- [x] 11.3 Agregar `db_compras` y `db_entradas` en `init-scripts/` conservando `db_ticketya` (sin `db_auth`).
+- [x] 11.4 Agregar servicio `nginx:alpine` opcional para servir `frontend/` en el puerto 4200.
 - [ ] 11.5 Ejecutar `docker compose up -d` y smoke manual: login → catálogo → fila → reserva → pago → QR → devolución → cancelación.
 - [ ] 11.6 Verificar UI de RabbitMQ (`:15672`), MailHog (`:8025`) y Grafana (`:3000`) con búsqueda por `correlationId`.
-- [ ] 11.7 Actualizar `README.md` con comandos de arranque, roles de prueba y dónde ver logs/correos.
+- [x] 11.7 Actualizar `README.md` con comandos de arranque, roles de prueba y dónde ver logs/correos.
 
 ## 12. Verificación final y entrega
 
