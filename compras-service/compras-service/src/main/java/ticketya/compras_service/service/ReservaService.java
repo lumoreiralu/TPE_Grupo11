@@ -32,6 +32,7 @@ public class ReservaService {
     private final EntradasClient entradasClient;
     private final CompraTransaccionService transaccionService;
     private final CompraSagaService compraSagaService;
+    private final FilaVirtualService filaVirtualService;
 
     @Value("${compras.reserva.minutos}")
     private int minutosReserva;
@@ -45,7 +46,8 @@ public class ReservaService {
                           EventosClient eventosClient,
                           EntradasClient entradasClient,
                           CompraTransaccionService transaccionService,
-                          CompraSagaService compraSagaService) {
+                          CompraSagaService compraSagaService,
+                          FilaVirtualService filaVirtualService) {
         this.ordenRepo = ordenRepo;
         this.bloqueoRepo = bloqueoRepo;
         this.cupoSectorRepo = cupoSectorRepo;
@@ -53,6 +55,7 @@ public class ReservaService {
         this.entradasClient = entradasClient;
         this.transaccionService = transaccionService;
         this.compraSagaService = compraSagaService;
+        this.filaVirtualService = filaVirtualService;
     }
 
     @Transactional
@@ -75,6 +78,9 @@ public class ReservaService {
         if (!"PUBLICADO".equals(evento.estado())) {
             throw new NegocioException(HttpStatus.CONFLICT, "El evento no esta publicado");
         }
+
+        // 3.1. Fila virtual: en alta demanda se exige pase vigente antes de crear la orden
+        filaVirtualService.exigirPaseParaReserva(evento, req.clienteId(), req.paseId());
 
         // 4. Limite de entradas por cliente para este evento
         long yaTiene = ordenRepo.contarEntradasDelCliente(
@@ -158,6 +164,7 @@ public class ReservaService {
             }
         }
 
+        filaVirtualService.consumirPase(req.paseId(), req.eventoId(), req.clienteId());
         return aRespuesta(orden);
     }
 

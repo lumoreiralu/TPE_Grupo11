@@ -34,11 +34,15 @@ public class CompraController {
     public ResponseEntity<ReservaResponse> reservar(
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestHeader(value = "X-Pase-Id", required = false) String paseHeader,
             @RequestBody ReservaRequest request) {
+        String paseId = request.paseId() != null && !request.paseId().isBlank()
+                ? request.paseId()
+                : paseHeader;
         // If gateway propagated X-User-Id, use it as clienteId (overrides body value)
         ReservaRequest effectiveRequest = (xUserId != null && !xUserId.isBlank())
-                ? new ReservaRequest(xUserId, request.eventoId(), request.items())
-                : request;
+                ? new ReservaRequest(xUserId, request.eventoId(), request.items(), paseId)
+                : new ReservaRequest(request.clienteId(), request.eventoId(), request.items(), paseId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(reservaService.reservar(effectiveRequest, idempotencyKey));
     }

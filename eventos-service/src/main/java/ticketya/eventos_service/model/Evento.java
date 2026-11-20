@@ -7,13 +7,17 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 @Document(collection="eventos")
-public class Evento {
+public class Evento implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     @Id
     private String id;
     private String nombre;
@@ -26,13 +30,18 @@ public class Evento {
     private String lugarId;
     private String ciudad;
     private EstadoEvento estado = EstadoEvento.BORRADOR;
+    private ModoFila modoFila = ModoFila.NORMAL;
+    private Integer umbralConcurrencia;
     private List<PrecioSector> preciosSectores;
     private List<SectorResumen> sectores;
 
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class PrecioSector {
+    public static class PrecioSector implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
         private String idSector;
         private BigDecimal precio;
     }
@@ -40,7 +49,10 @@ public class Evento {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class SectorResumen {
+    public static class SectorResumen implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
         private String sectorId;
         private String nombre;
         private TipoSector tipo;

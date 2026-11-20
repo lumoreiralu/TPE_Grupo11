@@ -10,9 +10,9 @@ import {
   Trash2,
   Users,
 } from 'lucide-react'
-import { getEvento, getLugar, reservar } from '../api/client'
+import { consultarTurnoFila, getEvento, getLugar, reservar, unirseAFila } from '../api/client'
 import { useApp } from '../context/AppContext'
-import type { Evento, Lugar, Sector } from '../types'
+import type { Evento, FilaJoinResponse, Lugar, Sector } from '../types'
 import type { SavedOrder, SelectedSeat } from '../lib/storage'
 import { saveOrder } from '../lib/storage'
 import { formatDateTime, formatPrice, seatLabel } from '../lib/format'
@@ -52,6 +52,9 @@ export function EventoDetallePage() {
   const [reserveError, setReserveError] = useState<string | null>(null)
   const [reserving, setReserving] = useState(false)
   const idempotencyKeyRef = useRef<string | null>(null)
+  const [filaEstado, setFilaEstado] = useState<FilaJoinResponse | null>(null)
+  const [filaCargando, setFilaCargando] = useState(false)
+  const [filaError, setFilaError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -62,6 +65,9 @@ export function EventoDetallePage() {
     setSelectionNotice(null)
     setReserveError(null)
     idempotencyKeyRef.current = null
+    setFilaEstado(null)
+    setFilaCargando(false)
+    setFilaError(null)
 
     try {
       const loadedEvent = await getEvento(id)
@@ -115,6 +121,54 @@ export function EventoDetallePage() {
   const meta = getEventMeta(evento?.tipoEvento)
   const TypeIcon = meta.Icon
   const canBuy = Boolean(evento) && (!evento?.estado || evento.estado === 'PUBLICADO')
+  const requiereFila = Boolean(canBuy && evento?.modoFila === 'ALTA_DEMANDA')
+  const tienePase = Boolean(filaEstado?.turnoActivo && filaEstado?.paseId)
+
+  const refrescarTurno = useCallback(async () => {
+    if (!evento || !requiereFila) return
+    try {
+      const turno = await consultarTurnoFila(evento.id, clienteId)
+      setFilaEstado((prev) => ({
+        eventoId: turno.eventoId,
+        clienteId: turno.clienteId,
+        posicion: turno.posicion,
+        turnoActivo: turno.turnoActivo,
+        paseId: turno.paseId,
+        segundosRestantesPase: turno.segundosRestantesPase,
+        mensaje:
+          turno.turnoActivo
+            ? 'Tu turno está activo. Ya podés seleccionar entradas.'
+            : turno.posicion > 0
+              ? `Estás en la fila. Posición actual: ${turno.posicion}`
+              : prev?.mensaje ?? 'Unite a la fila para obtener tu turno.',
+      }))
+      setFilaError(null)
+    } catch (e) {
+      setFilaError(errorMessage(e, 'No pudimos actualizar tu turno en la fila.'))
+    }
+  }, [evento, requiereFila, clienteId])
+
+  useEffect(() => {
+    if (!requiereFila || !filaEstado || filaEstado.turnoActivo) return
+    const interval = window.setInterval(() => {
+      void refrescarTurno()
+    }, 3000)
+    return () => window.clearInterval(interval)
+  }, [requiereFila, filaEstado, refrescarTurno])
+
+  async function handleJoinQueue() {
+    if (!evento) return
+    setFilaCargando(true)
+    setFilaError(null)
+    try {
+      const resp = await unirseAFila(evento.id, clienteId)
+      setFilaEstado(resp)
+    } catch (e) {
+      setFilaError(errorMessage(e, 'No pudimos unirte a la fila virtual.'))
+    } finally {
+      setFilaCargando(false)
+    }
+  }
 
   function seatKey(sectorId: string, fila: string, asiento: number): string {
     return `${sectorId}|${fila}|${asiento}`
@@ -177,6 +231,8 @@ export function EventoDetallePage() {
         idempotencyKeyRef.current = createIdempotencyKey()
       }
 
+      const paseId =
+        requiereFila && filaEstado?.turnoActivo ? filaEstado.paseId ?? undefined : undefined
       const response = await reservar(
         {
           clienteId,
@@ -186,6 +242,7 @@ export function EventoDetallePage() {
             fila,
             asiento,
           })),
+          ...(paseId ? { paseId } : {}),
         },
         idempotencyKeyRef.current,
       )
@@ -356,6 +413,47 @@ export function EventoDetallePage() {
               <span className="selection-count">{selected.length}</span>
             </div>
 
+            {requiereFila ? (
+              <div className={`queue-panel ${tienePase ? 'active' : ''}`}>
+                <div className="queue-panel-head">
+                  <strong>Fila virtual</strong>
+                  <span className="queue-badge">
+                    {tienePase
+                      ? 'Turno activo'
+                      : filaEstado
+                        ? `Posición ${filaEstado.posicion || '—'}`
+                        : 'Alta demanda'}
+                  </span>
+                </div>
+                <p className="muted">
+                  {filaEstado?.mensaje ??
+                    'Este evento tiene alta demanda. Unite a la fila para obtener un pase temporal de compra.'}
+                </p>
+                {filaEstado?.turnoActivo && filaEstado.segundosRestantesPase ? (
+                  <p className="queue-pass">
+                    Pase vigente · expira en aprox. {Math.floor(filaEstado.segundosRestantesPase / 60)} min
+                  </p>
+                ) : null}
+                <div className="queue-actions">
+                  {!filaEstado ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-block"
+                      onClick={() => void handleJoinQueue()}
+                      disabled={filaCargando}
+                    >
+                      {filaCargando ? 'Uniéndote a la fila…' : 'Unirme a la fila'}
+                    </button>
+                  ) : !filaEstado.turnoActivo ? (
+                    <button type="button" className="btn btn-ghost btn-block" onClick={() => void refrescarTurno()}>
+                      Actualizar turno
+                    </button>
+                  ) : null}
+                </div>
+                {filaError ? <p className="form-note error">{filaError}</p> : null}
+              </div>
+            ) : null}
+
             {selected.length === 0 ? (
               <p className="muted selection-empty">
                 Todavía no elegiste asientos. Hacé clic en un asiento disponible para agregarlo.
@@ -393,16 +491,26 @@ export function EventoDetallePage() {
             <button
               type="button"
               className="btn btn-primary btn-block"
-              disabled={selected.length === 0 || reserving || !canBuy}
+              disabled={
+                selected.length === 0 ||
+                reserving ||
+                !canBuy ||
+                (requiereFila && !tienePase)
+              }
               onClick={() => void handleReserve()}
             >
-              {reserving ? 'Reservando…' : 'Reservar asientos'}
+              {reserving
+                ? 'Reservando…'
+                : requiereFila && !tienePase
+                  ? 'Esperá tu turno en la fila'
+                  : 'Reservar asientos'}
             </button>
 
             <p className="hint">
               <Clock size={14} />
-              Al reservar, los asientos quedan bloqueados durante 10 minutos. Después elegís el
-              medio de pago.
+              {requiereFila
+                ? 'Este evento está en alta demanda: necesitás un pase de fila virtual vigente para reservar. Los asientos se bloquean por 10 minutos.'
+                : 'Al reservar, los asientos quedan bloqueados durante 10 minutos. Después elegís el medio de pago.'}
             </p>
 
             {selectionNotice ? <p className="form-note warning">{selectionNotice}</p> : null}

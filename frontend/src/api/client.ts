@@ -3,6 +3,9 @@ import type {
   ConfirmacionPagoResponse,
   Entrada,
   Evento,
+  FilaJoinResponse,
+  FilaTurnoResponse,
+  FilaValidarResponse,
   Lugar,
   ReservaRequest,
   ReservaResponse,
@@ -89,6 +92,32 @@ export function getEvento(id: string): Promise<Evento> {
 
 export function getLugar(id: string): Promise<Lugar> {
   return request<Lugar>(`/api/lugares/${encodeURIComponent(id)}`)
+}
+
+export function unirseAFila(eventoId: string, clienteId: string): Promise<FilaJoinResponse> {
+  return request<FilaJoinResponse>('/api/fila/join', {
+    method: 'POST',
+    body: JSON.stringify({ eventoId, clienteId }),
+  })
+}
+
+export function consultarTurnoFila(
+  eventoId: string,
+  clienteId: string,
+): Promise<FilaTurnoResponse> {
+  const query = new URLSearchParams({ eventoId, clienteId }).toString()
+  return request<FilaTurnoResponse>(`/api/fila/turno?${query}`)
+}
+
+export function validarPaseFila(
+  paseId: string,
+  eventoId: string,
+  clienteId: string,
+): Promise<FilaValidarResponse> {
+  return request<FilaValidarResponse>('/api/fila/validar', {
+    method: 'POST',
+    body: JSON.stringify({ paseId, eventoId, clienteId }),
+  })
 }
 
 export function reservar(

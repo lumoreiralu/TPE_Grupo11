@@ -80,3 +80,9 @@ resilience4j:
     instances:
       eventService:
         timeout-duration: 1500ms
+
+            # 2b. Fila virtual (compras-service)
+            - id: fila-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/api/fila/**

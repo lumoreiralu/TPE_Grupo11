@@ -13,8 +13,7 @@ import ticketya.eventos_service.model.EstadoEvento;
 import ticketya.eventos_service.model.Evento;
 import ticketya.eventos_service.model.TipoEvento;
 import ticketya.eventos_service.repository.EventoRepository;
-import ticketya.eventos_service.repository.LugarRepository;
-import ticketya.eventos_service.service.EventoBusquedaService;
+import ticketya.eventos_service.service.CatalogoCacheService;
 import ticketya.eventos_service.util.Futures;
 
 import java.math.BigDecimal;
@@ -31,10 +30,7 @@ public class EventoController {
     private EventoRepository eventoRepository;
 
     @Autowired
-    private LugarRepository lugarRepository;
-
-    @Autowired
-    private EventoBusquedaService busquedaService;
+    private CatalogoCacheService catalogoCacheService;
 
     @Autowired
     private EntradasClient entradasClient;
@@ -42,7 +38,7 @@ public class EventoController {
     @PostMapping
     public ResponseEntity<Evento> crearEvento(@RequestBody Evento evento) {
         evento.setEstado(EstadoEvento.BORRADOR);
-        completarDatosLugar(evento);
+        catalogoCacheService.completarDatosLugar(evento);
         Evento nuevoEvento = eventoRepository.save(evento);
         return new ResponseEntity<>(nuevoEvento, HttpStatus.CREATED);
     }
@@ -50,25 +46,18 @@ public class EventoController {
     @GetMapping
     public ResponseEntity<List<Evento>> obtenerEventos() {
         List<Evento> eventos = eventoRepository.findAll();
-        eventos.forEach(this::completarDatosLugar);
+        eventos.forEach(catalogoCacheService::completarDatosLugar);
         return new ResponseEntity<>(eventos, HttpStatus.OK);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Evento> obtenerEventoPorId(@PathVariable String id) {
-        return eventoRepository.findById(id)
-                .map(evento -> {
-                    completarDatosLugar(evento);
-                    return ResponseEntity.ok(evento);
-                })
-                .orElse(ResponseEntity.notFound().build());
+        return ResponseEntity.of(catalogoCacheService.obtenerPorId(id));
     }
 
     @GetMapping("/publicados")
     public ResponseEntity<List<Evento>> obtenerEventosPublicados() {
-        List<Evento> publicados = eventoRepository.findByEstado(EstadoEvento.PUBLICADO);
-        publicados.forEach(this::completarDatosLugar);
-        return ResponseEntity.ok(publicados);
+        return ResponseEntity.ok(catalogoCacheService.obtenerPublicados());
     }
 
     @GetMapping("/buscar")
@@ -81,16 +70,15 @@ public class EventoController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaHasta,
             @RequestParam(required = false, defaultValue = "fecha")
 String ordenarPor) {
-       List<Evento> resultado = busquedaService.buscar(
-        tipo,
-        organizadorId,
-        artista,
-        ciudad,
-        fechaDesde,
-        fechaHasta,
-        ordenarPor
-);
-        resultado.forEach(this::completarDatosLugar);
+        List<Evento> resultado = catalogoCacheService.buscar(
+                tipo,
+                organizadorId,
+                artista,
+                ciudad,
+                fechaDesde,
+                fechaHasta,
+                ordenarPor
+        );
         return ResponseEntity.ok(resultado);
     }
 
@@ -123,27 +111,10 @@ String ordenarPor) {
         }
 
         evento.setEstado(EstadoEvento.PUBLICADO);
-        completarDatosLugar(evento);
-        return ResponseEntity.ok(eventoRepository.save(evento));
-    }
-
-    private void completarDatosLugar(Evento evento) {
-        if (evento.getLugarId() != null) {
-            lugarRepository.findById(evento.getLugarId()).ifPresent(lugar -> {
-                if (evento.getCiudad() == null || evento.getCiudad().isBlank()) {
-                    evento.setCiudad(lugar.getCiudad());
-                }
-                if (lugar.getSectores() != null) {
-                    evento.setSectores(lugar.getSectores().stream()
-                            .map(s -> new Evento.SectorResumen(
-                                    s.getSectorId(),
-                                    s.getNombre(),
-                                    s.getTipo(),
-                                    s.getCapacidadMaxima()))
-                            .toList());
-                }
-            });
-        }
+        catalogoCacheService.completarDatosLugar(evento);
+        Evento guardado = eventoRepository.save(evento);
+        catalogoCacheService.invalidarCatalogo();
+        return ResponseEntity.ok(guardado);
     }
 
     @PostMapping("/{id}/cancelar")
@@ -153,6 +124,7 @@ String ordenarPor) {
                 .orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Evento no encontrado"));
         evento.setEstado(EstadoEvento.CANCELADO);
         eventoRepository.save(evento);
+        catalogoCacheService.invalidarCatalogo();
 
         //2. Notificar a entradas-service para cancelar entradas y liberar asientos
         try{

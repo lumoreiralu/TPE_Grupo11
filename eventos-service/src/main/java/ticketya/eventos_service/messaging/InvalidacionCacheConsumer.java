@@ -9,6 +9,7 @@ import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+import ticketya.eventos_service.config.CacheConfig;
 
 import java.time.Duration;
 
@@ -43,7 +44,7 @@ public class InvalidacionCacheConsumer {
             }
             log.info("Cache invalidation event received: type={} aggregateId={}", event.type(), event.aggregateId());
             if (cacheManager != null) {
-                var cache = cacheManager.getCache("catalogo");
+                var cache = cacheManager.getCache(CacheConfig.CATALOGO);
                 if (cache != null) {
                     cache.clear();
                 }

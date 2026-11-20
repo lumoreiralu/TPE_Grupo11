@@ -53,6 +53,8 @@ class ReservaConcurrenteTest {
         EventoDTO eventoMock = new EventoDTO(
                 eventoIdPrueba,
                 "PUBLICADO",
+                "NORMAL",
+                null,
                 List.of(new PrecioSectorDTO(sectorIdPrueba, new BigDecimal("30000.00"))),
                 List.of(new EventoDTO.SectorInfoDTO(sectorIdPrueba, "Platea Numerada", "NUMERADO", 100)));
         when(eventosClient.obtenerEvento(anyString())).thenReturn(CompletableFuture.completedFuture(eventoMock));

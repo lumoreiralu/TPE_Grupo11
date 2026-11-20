@@ -170,7 +170,9 @@ paths:
   /api/compras/reservar:
     post:
       summary: Reservar asientos temporalmente (10 minutos)
-      description: Bloquea los asientos seleccionados con soporte de idempotencia y control de concurrencia.
+      description: |
+        Bloquea los asientos seleccionados con soporte de idempotencia y control de concurrencia.
+        Si el evento está en modo ALTA_DEMANDA, requiere un pase vigente de la fila virtual (`paseId` en el cuerpo o header `X-Pase-Id`).
       tags:
         - Compras
       parameters:
@@ -191,6 +193,7 @@ paths:
                 - sectorId: "SEC-PLATEA-A"
                   fila: "1"
                   asiento: 1
+              paseId: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
       responses:
         "201":
           description: Reserva temporal creada con éxito.
@@ -210,7 +213,7 @@ paths:
           description: Evento no encontrado o no publicado.
 
         "409":
-          description: Conflicto - Uno o más asientos ya se encuentran reservados o vendidos.
+          description: Conflicto - Uno o más asientos ya se encuentran reservados/vendidos, o el evento está en alta demanda y falta/expiró el pase de fila virtual.
 
   /api/compras/{id}/confirmar-pago:
     post:
@@ -352,6 +355,106 @@ paths:
           description: La entrada ya fue utilizada previamente.
 
   # ==========================================
+  # FILA VIRTUAL (ALTA DEMANDA)
+  # ==========================================
+
+  /api/fila/join:
+    post:
+      summary: Unirse a la fila virtual de un evento
+      description: |
+        Registra al cliente en la fila (`ZADD queue:{eventoId}`) cuando el evento está en modo ALTA_DEMANDA.
+        Si el evento no está en alta demanda o ya existe un pase activo, devuelve un pase vigente para continuar con la compra.
+      tags:
+        - Fila Virtual
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [eventoId]
+              properties:
+                eventoId:
+                  type: string
+                clienteId:
+                  type: string
+                  description: Se ignora si el token JWT incluye el identificador del usuario; se toma de X-User-Id.
+      responses:
+        "200":
+          description: Estado actual en la fila o pase otorgado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilaJoinResponse'
+        "401":
+          description: Token JWT inválido o ausente.
+        "403":
+          description: Rol insuficiente.
+        "409":
+          description: No se pudo obtener turno/pase en este momento.
+
+  /api/fila/turno:
+    get:
+      summary: Consultar posición y turno en la fila virtual
+      tags:
+        - Fila Virtual
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventoId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: clienteId
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Posición actual (ZRANK) y, si corresponde, pase activo.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilaTurnoResponse'
+        "401":
+          description: Token JWT inválido o ausente.
+
+  /api/fila/validar:
+    post:
+      summary: Validar un pase temporal de fila virtual
+      tags:
+        - Fila Virtual
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paseId, eventoId]
+              properties:
+                paseId:
+                  type: string
+                eventoId:
+                  type: string
+                clienteId:
+                  type: string
+      responses:
+        "200":
+          description: Resultado de la validación del pase.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilaValidarResponse'
+        "401":
+          description: Token JWT inválido o ausente.
+
+  # ==========================================
   # AUTENTICACION Y SEGURIDAD
   # ==========================================
 
@@ -395,6 +498,33 @@ paths:
           description: Credenciales inválidas o cuenta inexistente.
 
 components:
+  schemas:
+
+    FilaJoinResponse:
+      type: object
+      properties:
+        eventoId: { type: string }
+        clienteId: { type: string }
+        posicion: { type: integer, format: int64 }
+        turnoActivo: { type: boolean }
+        paseId: { type: string, nullable: true }
+        segundosRestantesPase: { type: integer, format: int64, nullable: true }
+        mensaje: { type: string }
+    FilaTurnoResponse:
+      type: object
+      properties:
+        eventoId: { type: string }
+        clienteId: { type: string }
+        posicion: { type: integer, format: int64 }
+        turnoActivo: { type: boolean }
+        paseId: { type: string, nullable: true }
+        segundosRestantesPase: { type: integer, format: int64, nullable: true }
+    FilaValidarResponse:
+      type: object
+      properties:
+        valido: { type: boolean }
+        mensaje: { type: string }
+
   securitySchemes:
     bearerAuth:
       type: http

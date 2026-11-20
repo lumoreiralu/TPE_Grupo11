@@ -9,6 +9,8 @@ import java.util.List;
 public record EventoDTO(
         String id,
         String estado,
+        String modoFila,
+        Integer umbralConcurrencia,
         List<PrecioSectorDTO> preciosSectores,
         List<SectorInfoDTO> sectores
 ) {

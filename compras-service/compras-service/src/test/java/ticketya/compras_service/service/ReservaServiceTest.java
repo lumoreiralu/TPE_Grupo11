@@ -82,16 +82,27 @@ class ReservaServiceTest {
     @MockitoBean
     private DomainEventPublisher eventPublisher;
 
+    @MockitoBean
+    private FilaVirtualService filaVirtualService;
+
     @BeforeEach
     void setUp() {
         bloqueoRepo.deleteAll();
         ordenRepo.deleteAll();
         cupoSectorRepo.deleteAll();
 
+        when(filaVirtualService.filaRequerida(any())).thenReturn(false);
+        org.mockito.Mockito.doNothing().when(filaVirtualService)
+                .exigirPaseParaReserva(any(), any(), any());
+        org.mockito.Mockito.doNothing().when(filaVirtualService)
+                .consumirPase(any(), any(), any());
+
         when(eventosClient.obtenerEvento(EVENTO_ID))
                 .thenReturn(CompletableFuture.completedFuture(new EventoDTO(
                         EVENTO_ID,
                         "PUBLICADO",
+                        "NORMAL",
+                        null,
                         List.of(
                                 new EventoDTO.PrecioSectorDTO(SECTOR_ID, new BigDecimal("100.00")),
                                 new EventoDTO.PrecioSectorDTO(SECTOR_CAMPO, new BigDecimal("50.00"))

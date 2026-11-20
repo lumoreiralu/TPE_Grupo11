@@ -58,11 +58,11 @@
 
 ## 5. Caché de catálogo con Redis
 
-- [ ] 5.1 Agregar `spring-boot-starter-data-redis` y `RedisCacheManager` con TTL 60 s para `catalogo`.
-- [ ] 5.2 Aplicar `@Cacheable(value="catalogo")` a `GET /api/eventos/publicados`, `GET /api/eventos/{id}` y `GET /api/eventos/buscar`.
-- [ ] 5.3 Invalidar caché al publicar/modificar/cancelar evento y desde el consumidor de `invalidacion-cache.q`.
-- [ ] 5.4 Implementar `CacheErrorHandler` que consulte MongoDB cuando Redis falle y registre el aviso.
-- [ ] 5.5 **Tests:** segunda consulta no accede a MongoDB, TTL vence, invalidación tras cancelación y degradación ante caída de Redis.
+- [x] 5.1 Agregar `spring-boot-starter-data-redis` y `RedisCacheManager` con TTL 60 s para `catalogo`.
+- [x] 5.2 Aplicar `@Cacheable(value="catalogo")` a `GET /api/eventos/publicados`, `GET /api/eventos/{id}` y `GET /api/eventos/buscar`.
+- [x] 5.3 Invalidar caché al publicar/modificar/cancelar evento y desde el consumidor de `invalidacion-cache.q`.
+- [x] 5.4 Implementar `CacheErrorHandler` que consulte MongoDB cuando Redis falle y registre el aviso.
+- [x] 5.5 **Tests:** segunda consulta no accede a MongoDB, TTL vence, invalidación tras cancelación y degradación ante caída de Redis.
 
 ## 6. Devoluciones y cancelación masiva (R6–R8)
 
@@ -83,12 +83,12 @@
 
 ## 8. Fila virtual (R10)
 
-- [ ] 8.1 Agregar configuración `modoFila: NORMAL|ALTA_DEMANDA` y umbral de concurrencia por evento.
-- [ ] 8.2 Implementar en `compras-service`: `POST /api/fila/join` (ZADD en `queue:{eventoId}`), `GET /api/fila/turno` (ZRANK) y `POST /api/fila/validar`.
-- [ ] 8.3 Implementar `QueueScheduler` cada 1 s que promueve turnos y crea `SET pass:{paseId}` con expiración de 600 s.
-- [ ] 8.4 Integrar la validación del pase en `CompraSagaService` antes de crear la orden; sin pase responde 409 con instrucción de esperar turno.
-- [ ] 8.5 Mostrar posición/turno en `frontend/` y exponer los endpoints en `docs/openapi.yaml`.
-- [ ] 8.6 **Tests:** turnos correlativos, pase expira y pasa al siguiente, reserva sin pase se deniega, reserva con pase vigente continúa.
+- [x] 8.1 Agregar configuración `modoFila: NORMAL|ALTA_DEMANDA` y umbral de concurrencia por evento.
+- [x] 8.2 Implementar en `compras-service`: `POST /api/fila/join` (ZADD en `queue:{eventoId}`), `GET /api/fila/turno` (ZRANK) y `POST /api/fila/validar`.
+- [x] 8.3 Implementar `QueueScheduler` cada 1 s que promueve turnos y crea `SET pass:{paseId}` con expiración de 600 s.
+- [x] 8.4 Integrar la validación del pase en `CompraSagaService` antes de crear la orden; sin pase responde 409 con instrucción de esperar turno.
+- [x] 8.5 Mostrar posición/turno en `frontend/` y exponer los endpoints en `docs/openapi.yaml`.
+- [x] 8.6 **Tests:** turnos correlativos, pase expira y pasa al siguiente, reserva sin pase se deniega, reserva con pase vigente continúa.
 
 ## 9. Notificaciones (R11)
 

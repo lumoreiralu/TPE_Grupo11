@@ -19,6 +19,8 @@ export interface PrecioSector {
   precio: number
 }
 
+export type ModoFila = 'NORMAL' | 'ALTA_DEMANDA'
+
 export interface Evento {
   id: string
   nombre: string
@@ -30,6 +32,8 @@ export interface Evento {
   lugarId: string
   ciudad?: string
   estado?: EstadoEvento
+  modoFila?: ModoFila
+  umbralConcurrencia?: number
   preciosSectores?: PrecioSector[]
 }
 
@@ -68,6 +72,7 @@ export interface ReservaRequest {
   clienteId: string
   eventoId: string
   items: ReservaItem[]
+  paseId?: string
 }
 
 export interface ReservaResponse {
@@ -108,4 +113,29 @@ export interface BusquedaEventosParams {
   fechaDesde?: string
   fechaHasta?: string
   organizadorId?: string
+}
+
+
+export interface FilaJoinResponse {
+  eventoId: string
+  clienteId: string
+  posicion: number
+  turnoActivo: boolean
+  paseId: string | null
+  segundosRestantesPase: number | null
+  mensaje: string
+}
+
+export interface FilaTurnoResponse {
+  eventoId: string
+  clienteId: string
+  posicion: number
+  turnoActivo: boolean
+  paseId: string | null
+  segundosRestantesPase: number | null
+}
+
+export interface FilaValidarResponse {
+  valido: boolean
+  mensaje: string
 }

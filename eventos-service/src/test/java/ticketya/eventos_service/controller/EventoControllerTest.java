@@ -10,15 +10,17 @@ import ticketya.eventos_service.client.EntradasClient;
 import ticketya.eventos_service.model.EstadoEvento;
 import ticketya.eventos_service.model.Evento;
 import ticketya.eventos_service.repository.EventoRepository;
-import ticketya.eventos_service.repository.LugarRepository;
-import ticketya.eventos_service.service.EventoBusquedaService;
+import ticketya.eventos_service.service.CatalogoCacheService;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -33,10 +35,7 @@ class EventoControllerTest {
     private EventoRepository eventoRepository;
 
     @MockitoBean
-    private LugarRepository lugarRepository;
-
-    @MockitoBean
-    private EventoBusquedaService busquedaService;
+    private CatalogoCacheService catalogoCacheService;
 
     @MockitoBean
     private EntradasClient entradasClient;
@@ -57,6 +56,21 @@ class EventoControllerTest {
     }
 
     @Test
+    void cancelarEventoInvalidaElCatalogo() throws Exception {
+        Evento evento = new Evento();
+        evento.setId("evt-3");
+        evento.setEstado(EstadoEvento.PUBLICADO);
+        when(eventoRepository.findById("evt-3")).thenReturn(Optional.of(evento));
+        when(entradasClient.cancelarEntradasPorEvento("evt-3"))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        mockMvc.perform(post("/api/eventos/evt-3/cancelar"))
+                .andExpect(status().isOk());
+
+        verify(catalogoCacheService).invalidarCatalogo();
+    }
+
+    @Test
     void publicaEventoConPreciosValidos() throws Exception {
         Evento eventoConPrecios = new Evento();
         eventoConPrecios.setId("evt-2");
@@ -73,6 +87,8 @@ class EventoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("PUBLICADO"));
+
+        verify(catalogoCacheService).invalidarCatalogo();
     }
 }
 
