@@ -15,11 +15,14 @@ import ticketya.compras_service.client.ReembolsoResponse;
 import ticketya.compras_service.dto.ConfirmacionPagoResponse;
 import ticketya.compras_service.dto.ConfirmarPagoRequest;
 import ticketya.compras_service.exception.NegocioException;
+import ticketya.compras_service.messaging.DomainEvent;
+import ticketya.compras_service.messaging.DomainEventPublisher;
 import ticketya.compras_service.model.EstadoOrden;
 import ticketya.compras_service.model.OrdenCompra;
 import ticketya.compras_service.util.Futures;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -30,13 +33,16 @@ public class CompraSagaService {
     private final CompraTransaccionService transaccionService;
     private final PasarelaClient pasarelaClient;
     private final EntradasClient entradasClient;
+    private final DomainEventPublisher eventPublisher;
 
     public CompraSagaService(CompraTransaccionService transaccionService,
                              PasarelaClient pasarelaClient,
-                             EntradasClient entradasClient) {
+                             EntradasClient entradasClient,
+                             DomainEventPublisher eventPublisher) {
         this.transaccionService = transaccionService;
         this.pasarelaClient = pasarelaClient;
         this.entradasClient = entradasClient;
+        this.eventPublisher = eventPublisher;
     }
 
     public ConfirmacionPagoResponse confirmarPago(UUID ordenId, ConfirmarPagoRequest request) {
@@ -57,13 +63,15 @@ public class CompraSagaService {
                 && !request.metodoPago().isBlank()
                 ? request.metodoPago()
                 : "TARJETA";
+        String idempotencyKey = claveIdempotencia(orden);
         String transaccionAprobada = null;
 
         try {
             if (orden.getEstado() != EstadoOrden.PAGO_CONFIRMADO) {
                 PagoRequest pagoRequest = new PagoRequest(
                         orden.getMontoTotal(), orden.getId().toString(), metodoPago);
-                PagoResponse pagoResponse = Futures.join(pasarelaClient.procesarPago(pagoRequest));
+                PagoResponse pagoResponse = Futures.join(
+                        pasarelaClient.procesarPago(pagoRequest, idempotencyKey));
 
                 if (pagoResponse == null || !"APROBADO".equalsIgnoreCase(pagoResponse.estado())) {
                     String transaccionId = pagoResponse != null ? pagoResponse.transaccionId() : null;
@@ -76,6 +84,7 @@ public class CompraSagaService {
 
                 transaccionAprobada = pagoResponse.transaccionId();
                 transaccionService.registrarPagoAprobado(ordenId, transaccionAprobada, metodoPago);
+                publicarPagoAprobado(orden, transaccionAprobada);
             }
 
             orden = transaccionService.obtenerOrden(ordenId);
@@ -85,17 +94,72 @@ public class CompraSagaService {
                     .toList();
             EmisionRequest emisionRequest = new EmisionRequest(
                     orden.getId().toString(), orden.getClienteId(), orden.getEventoId(), asientos);
-            EmisionResponse emisionResponse = Futures.join(entradasClient.emitirEntradas(emisionRequest));
+            EmisionResponse emisionResponse = Futures.join(
+                    entradasClient.emitirEntradas(emisionRequest, idempotencyKey));
             List<EmisionResponse.EntradaDTO> entradas = emisionResponse != null && emisionResponse.entradas() != null
                     ? emisionResponse.entradas()
                     : List.of();
 
             transaccionService.registrarOrdenCompletada(ordenId);
             orden = transaccionService.obtenerOrden(ordenId);
+            publicarEntradaEmitida(orden);
             return respuesta(orden, entradas, "Compra completada exitosamente");
         } catch (RuntimeException error) {
             compensarTrasFallo(ordenId, metodoPago, transaccionAprobada, error);
             throw error;
+        }
+    }
+
+    public void reconciliarOrden(UUID ordenId) {
+        OrdenCompra orden = transaccionService.obtenerOrden(ordenId);
+        if (orden.getEstado() != EstadoOrden.PROCESANDO_PAGO) {
+            return;
+        }
+
+        PagoResponse estadoPago = orden.getTransaccionPagoId() != null
+                ? Futures.join(pasarelaClient.consultarEstadoPago(orden.getTransaccionPagoId()))
+                : Futures.join(pasarelaClient.consultarEstadoPagoPorOrden(ordenId.toString()));
+        if (estadoPago == null || estadoPago.estado() == null) {
+            throw new NegocioException(HttpStatus.BAD_GATEWAY,
+                    "La pasarela devolvió un estado de pago inválido; la orden permanece pendiente");
+        }
+
+        if ("APROBADO".equalsIgnoreCase(estadoPago.estado())) {
+            String transaccionId = estadoPago.transaccionId();
+            if (transaccionId == null || transaccionId.isBlank()) {
+                throw new NegocioException(HttpStatus.BAD_GATEWAY,
+                        "La pasarela informó un pago aprobado sin identificador de transacción");
+            }
+
+            String metodoPago = orden.getMetodoPago() != null ? orden.getMetodoPago() : "RECONCILIACION";
+            transaccionService.registrarPagoAprobado(ordenId, transaccionId, metodoPago);
+            orden = transaccionService.obtenerOrden(ordenId);
+            publicarPagoAprobado(orden, transaccionId);
+            try {
+                List<EmisionResponse.EntradaDTO> entradas = emitir(orden, claveIdempotencia(orden));
+                transaccionService.registrarOrdenCompletada(ordenId);
+                publicarEntradaEmitida(orden);
+                log.info("Orden {} reconciliada y completada con {} entradas", ordenId, entradas.size());
+            } catch (RuntimeException error) {
+                compensarTrasFallo(ordenId, metodoPago, transaccionId, error);
+                throw error;
+            }
+            return;
+        }
+
+        if ("RECHAZADO".equalsIgnoreCase(estadoPago.estado())
+                || "EXPIRADO".equalsIgnoreCase(estadoPago.estado())
+                || "NO_ENCONTRADO".equalsIgnoreCase(estadoPago.estado())) {
+            String motivo = estadoPago.mensaje() != null
+                    ? estadoPago.mensaje()
+                    : "El pago fue rechazado o expiró durante la reconciliación";
+            transaccionService.registrarPagoRechazado(
+                    ordenId,
+                    estadoPago.transaccionId(),
+                    orden.getMetodoPago() != null ? orden.getMetodoPago() : "RECONCILIACION",
+                    motivo);
+            log.info("Orden {} convergió a estado fallido durante la reconciliación: {}",
+                    ordenId, estadoPago.estado());
         }
     }
 
@@ -131,8 +195,6 @@ public class CompraSagaService {
                 log.error("No se pudo completar la compensación de la orden {} tras el fallo de la compra",
                         ordenId, errorCompensacion);
             }
-        } else if (orden.getEstado() == EstadoOrden.PROCESANDO_PAGO) {
-            transaccionService.revertirAEstadoReservado(ordenId);
         }
     }
 
@@ -152,6 +214,52 @@ public class CompraSagaService {
 
         Futures.join(entradasClient.eliminarEntradasPorOrden(orden.getId().toString()));
         transaccionService.registrarOrdenCompensada(orden.getId(), motivo);
+        publicarPagoCompensado(orden, motivo);
+    }
+
+    private List<EmisionResponse.EntradaDTO> emitir(OrdenCompra orden, String idempotencyKey) {
+        List<EmisionRequest.AsientoEntrada> asientos = orden.getDetalles().stream()
+                .map(detalle -> new EmisionRequest.AsientoEntrada(
+                        detalle.getSectorId(), detalle.getFila(), detalle.getAsiento()))
+                .toList();
+        EmisionRequest request = new EmisionRequest(
+                orden.getId().toString(), orden.getClienteId(), orden.getEventoId(), asientos);
+        EmisionResponse response = Futures.join(entradasClient.emitirEntradas(request, idempotencyKey));
+        if (response == null || response.entradas() == null) {
+            throw new NegocioException(HttpStatus.BAD_GATEWAY,
+                    "entradas-service devolvió una respuesta de emisión inválida");
+        }
+        return response.entradas();
+    }
+
+    private void publicarPagoAprobado(OrdenCompra orden, String transaccionId) {
+        eventPublisher.publish(DomainEvent.of("pago.aprobado", orden.getId().toString(), Map.of(
+                "ordenId", orden.getId().toString(),
+                "transaccionPagoId", transaccionId,
+                "clienteId", orden.getClienteId(),
+                "eventoId", orden.getEventoId(),
+                "monto", orden.getMontoTotal())));
+    }
+
+    private void publicarEntradaEmitida(OrdenCompra orden) {
+        eventPublisher.publish(DomainEvent.of("entrada.emitida", orden.getId().toString(), Map.of(
+                "ordenId", orden.getId().toString(),
+                "clienteId", orden.getClienteId(),
+                "eventoId", orden.getEventoId())));
+    }
+
+    private void publicarPagoCompensado(OrdenCompra orden, String motivo) {
+        eventPublisher.publish(DomainEvent.of("pago.compensado", orden.getId().toString(), Map.of(
+                "ordenId", orden.getId().toString(),
+                "transaccionPagoId", orden.getTransaccionPagoId(),
+                "monto", orden.getMontoTotal(),
+                "motivo", motivo)));
+    }
+
+    private String claveIdempotencia(OrdenCompra orden) {
+        return orden.getIdempotencyKey() != null && !orden.getIdempotencyKey().isBlank()
+                ? orden.getIdempotencyKey()
+                : orden.getId().toString();
     }
 
     private String motivo(RuntimeException error) {

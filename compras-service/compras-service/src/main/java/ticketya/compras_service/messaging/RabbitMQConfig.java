@@ -47,6 +47,11 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Binding notificacionesEntradaEmitidaBinding(Queue notificacionesQueue, TopicExchange ticketyaExchange) {
+        return BindingBuilder.bind(notificacionesQueue).to(ticketyaExchange).with("entrada.emitida");
+    }
+
+    @Bean
     public Binding notificacionesDevolucionBinding(Queue notificacionesQueue, TopicExchange ticketyaExchange) {
         return BindingBuilder.bind(notificacionesQueue).to(ticketyaExchange).with("devolucion.aprobada");
     }
@@ -64,6 +69,11 @@ public class RabbitMQConfig {
     @Bean
     public Binding metricasPagoAprobadoBinding(Queue metricasQueue, TopicExchange ticketyaExchange) {
         return BindingBuilder.bind(metricasQueue).to(ticketyaExchange).with("pago.aprobado");
+    }
+
+    @Bean
+    public Binding metricasEntradaEmitidaBinding(Queue metricasQueue, TopicExchange ticketyaExchange) {
+        return BindingBuilder.bind(metricasQueue).to(ticketyaExchange).with("entrada.emitida");
     }
 
     @Bean

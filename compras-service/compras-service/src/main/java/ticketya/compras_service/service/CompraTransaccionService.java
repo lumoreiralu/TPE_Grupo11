@@ -121,6 +121,21 @@ public class CompraTransaccionService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void registrarPagoRechazado(UUID ordenId, String transaccionId, String metodoPago, String motivo) {
+        bloqueoRepo.deleteByOrdenId(ordenId);
+        ordenRepo.findById(ordenId).ifPresent(o -> {
+            restaurarCuposGenerales(o);
+            o.setEstado(EstadoOrden.CANCELADA);
+            o.setMetodoPago(metodoPago);
+            o.setTransaccionPagoId(transaccionId);
+            o.setMotivoCompensacion(motivo);
+            o.setFechaExpiracionReserva(LocalDateTime.now());
+            ordenRepo.saveAndFlush(o);
+        });
+        bloqueoRepo.flush();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void registrarOrdenCompletada(UUID ordenId) {
         ordenRepo.findById(ordenId).ifPresent(o -> {
             o.setEstado(EstadoOrden.COMPLETADA);

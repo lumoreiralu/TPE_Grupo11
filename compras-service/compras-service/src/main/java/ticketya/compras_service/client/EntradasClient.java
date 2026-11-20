@@ -32,9 +32,10 @@ public class EntradasClient {
     @CircuitBreaker(name = "ticketService", fallbackMethod = "emitirEntradasFallback")
     @Retry(name = "ticketService")
     @TimeLimiter(name = "ticketService")
-    public CompletableFuture<EmisionResponse> emitirEntradas(EmisionRequest request) {
+    public CompletableFuture<EmisionResponse> emitirEntradas(EmisionRequest request, String idempotencyKey) {
         return webClient.post()
                 .uri("/api/entradas/emitir")
+                .header("Idempotency-Key", idempotencyKey)
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, response -> {
@@ -92,7 +93,8 @@ public class EntradasClient {
      * Fallback de D4 para ticketService. Devuelve un error controlado para que
      * CompraSagaService pueda ejecutar la compensación de la compra.
      */
-    private CompletableFuture<EmisionResponse> emitirEntradasFallback(EmisionRequest request, Throwable error) {
+    private CompletableFuture<EmisionResponse> emitirEntradasFallback(
+            EmisionRequest request, String idempotencyKey, Throwable error) {
         Throwable causa = Futures.unwrap(error);
         if (causa instanceof NegocioException negocioException) {
             return CompletableFuture.failedFuture(negocioException);

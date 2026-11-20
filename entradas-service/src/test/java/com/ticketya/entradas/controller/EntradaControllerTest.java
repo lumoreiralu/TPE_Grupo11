@@ -6,6 +6,7 @@ import com.ticketya.entradas.dto.ValidarQrResponse;
 import com.ticketya.entradas.model.EstadoEntrada;
 import com.ticketya.entradas.model.SolicitudDevolucion;
 import com.ticketya.entradas.service.EntradaService;
+import com.ticketya.entradas.service.RedisIdempotencyStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -34,6 +35,9 @@ class EntradaControllerTest {
 
     @MockitoBean
     private EntradaService entradaService;
+
+    @MockitoBean
+    private RedisIdempotencyStore idempotencyStore;
 
     @Test
     void solicitarDevolucionUsaXUserIdIgnorandoParametroDistinto() throws Exception {

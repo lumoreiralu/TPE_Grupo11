@@ -30,9 +30,10 @@ public class PasarelaClient {
     @CircuitBreaker(name = "paymentGateway", fallbackMethod = "procesarPagoFallback")
     @Retry(name = "paymentGateway")
     @TimeLimiter(name = "paymentGateway")
-    public CompletableFuture<PagoResponse> procesarPago(PagoRequest request) {
+    public CompletableFuture<PagoResponse> procesarPago(PagoRequest request, String idempotencyKey) {
         return webClient.post()
                 .uri("/api/pagos/procesar")
+                .header("Idempotency-Key", idempotencyKey)
                 .bodyValue(request)
                 .retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, response -> {
@@ -40,6 +41,36 @@ public class PasarelaClient {
                     return Mono.error(new NegocioException(status,
                             "Error al comunicarse con la pasarela de pagos: " + status.value()));
                 })
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        Mono.error(new RemoteServiceException(
+                                "La pasarela de pagos devolvió un error de servidor (5xx): "
+                                        + response.statusCode().value())))
+                .bodyToMono(PagoResponse.class)
+                .toFuture();
+    }
+
+    @CircuitBreaker(name = "paymentGateway", fallbackMethod = "consultarEstadoPagoFallback")
+    @Retry(name = "paymentGateway")
+    @TimeLimiter(name = "paymentGateway")
+    public CompletableFuture<PagoResponse> consultarEstadoPago(String paymentId) {
+        return webClient.get()
+                .uri("/api/pagos/estado/{paymentId}", paymentId)
+                .retrieve()
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        Mono.error(new RemoteServiceException(
+                                "La pasarela de pagos devolvió un error de servidor (5xx): "
+                                        + response.statusCode().value())))
+                .bodyToMono(PagoResponse.class)
+                .toFuture();
+    }
+
+    @CircuitBreaker(name = "paymentGateway", fallbackMethod = "consultarEstadoPagoPorOrdenFallback")
+    @Retry(name = "paymentGateway")
+    @TimeLimiter(name = "paymentGateway")
+    public CompletableFuture<PagoResponse> consultarEstadoPagoPorOrden(String ordenId) {
+        return webClient.get()
+                .uri("/api/pagos/estado/orden/{ordenId}", ordenId)
+                .retrieve()
                 .onStatus(HttpStatusCode::is5xxServerError, response ->
                         Mono.error(new RemoteServiceException(
                                 "La pasarela de pagos devolvió un error de servidor (5xx): "
@@ -70,11 +101,11 @@ public class PasarelaClient {
     }
 
     /**
-     * Fallback de D4 para paymentGateway: no se vuelve a cobrar. El estado
-     * PAGO_PENDIENTE y su reconciliación se completan en la saga (4.4-4.7);
-     * hasta entonces la orden se revierte a RESERVADA_TEMPORAL en el servicio.
+     * Fallback de D4 para paymentGateway: no se vuelve a cobrar y se conserva
+     * PROCESANDO_PAGO para que la reconciliación consulte el resultado real.
      */
-    private CompletableFuture<PagoResponse> procesarPagoFallback(PagoRequest request, Throwable error) {
+    private CompletableFuture<PagoResponse> procesarPagoFallback(
+            PagoRequest request, String idempotencyKey, Throwable error) {
         Throwable causa = Futures.unwrap(error);
         if (causa instanceof NegocioException negocioException) {
             return CompletableFuture.failedFuture(negocioException);
@@ -84,7 +115,7 @@ public class PasarelaClient {
                 request != null ? request.ordenId() : "desconocida", causa.toString());
         return CompletableFuture.failedFuture(new NegocioException(
                 HttpStatus.SERVICE_UNAVAILABLE,
-                "La pasarela de pagos no está disponible; no se realizó ningún cargo"));
+                "No se pudo confirmar el resultado del pago; la orden permanece pendiente de reconciliación"));
     }
 
     private CompletableFuture<ReembolsoResponse> reembolsarPagoFallback(
@@ -98,5 +129,21 @@ public class PasarelaClient {
                 request != null ? request.transaccionId() : "desconocida", causa.toString());
         return CompletableFuture.failedFuture(new NegocioException(
                 HttpStatus.BAD_GATEWAY, "La pasarela no pudo completar el reembolso"));
+    }
+
+    private CompletableFuture<PagoResponse> consultarEstadoPagoFallback(String paymentId, Throwable error) {
+        return estadoPagoFallido("la transacción " + paymentId, error);
+    }
+
+    private CompletableFuture<PagoResponse> consultarEstadoPagoPorOrdenFallback(String ordenId, Throwable error) {
+        return estadoPagoFallido("la orden " + ordenId, error);
+    }
+
+    private CompletableFuture<PagoResponse> estadoPagoFallido(String referencia, Throwable error) {
+        Throwable causa = Futures.unwrap(error);
+        log.error("No se pudo consultar el estado de pago para {}: {}", referencia, causa.toString());
+        return CompletableFuture.failedFuture(new NegocioException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "No se pudo consultar el estado real del pago; la orden permanece pendiente"));
     }
 }

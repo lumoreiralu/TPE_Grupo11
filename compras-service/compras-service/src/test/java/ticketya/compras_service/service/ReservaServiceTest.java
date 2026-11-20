@@ -13,6 +13,8 @@ import ticketya.compras_service.dto.ItemReserva;
 import ticketya.compras_service.dto.ReservaRequest;
 import ticketya.compras_service.dto.ReservaResponse;
 import ticketya.compras_service.exception.NegocioException;
+import ticketya.compras_service.messaging.DomainEvent;
+import ticketya.compras_service.messaging.DomainEventPublisher;
 import ticketya.compras_service.model.BloqueoAsiento;
 import ticketya.compras_service.model.CupoSector;
 import ticketya.compras_service.model.EstadoBloqueo;
@@ -35,6 +37,9 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @SpringBootTest
@@ -54,6 +59,9 @@ class ReservaServiceTest {
     private CompraTransaccionService transaccionService;
 
     @Autowired
+    private OrderReconciliationJob reconciliationJob;
+
+    @Autowired
     private OrdenCompraRepository ordenRepo;
 
     @Autowired
@@ -70,6 +78,9 @@ class ReservaServiceTest {
 
     @MockitoBean
     private EntradasClient entradasClient;
+
+    @MockitoBean
+    private DomainEventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
@@ -262,7 +273,7 @@ class ReservaServiceTest {
 
         assertEquals(1, cupoSectorRepo.findByEventoIdAndSectorId(EVENTO_ID, SECTOR_CAMPO).orElseThrow().getCuposDisponibles());
 
-        when(pasarelaClient.procesarPago(any()))
+        when(pasarelaClient.procesarPago(any(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(
                         new PagoResponse("txn-rechazada", "RECHAZADO", "Fondos insuficientes")));
 
@@ -306,11 +317,11 @@ class ReservaServiceTest {
     void confirmarPagoAprobadoCompletaOrdenVendeAsientosYEmitenTickets() {
         ReservaResponse reserva = reservaService.reservar(request("cliente-pago"), "idem-pago");
 
-        when(pasarelaClient.procesarPago(any()))
+        when(pasarelaClient.procesarPago(any(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(
                         new PagoResponse("txn-12345", "APROBADO", "Pago aprobado exitosamente")));
 
-        when(entradasClient.emitirEntradas(any()))
+        when(entradasClient.emitirEntradas(any(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(new EmisionResponse(
                         reserva.ordenId().toString(),
                         List.of(new EmisionResponse.EntradaDTO(
@@ -334,13 +345,15 @@ class ReservaServiceTest {
         List<BloqueoAsiento> bloqueos = bloqueoRepo.findByOrdenId(reserva.ordenId());
         assertEquals(1, bloqueos.size());
         assertEquals(EstadoBloqueo.VENDIDO, bloqueos.get(0).getEstado());
+        verify(eventPublisher).publish(argThat(event -> "pago.aprobado".equals(event.type())));
+        verify(eventPublisher).publish(argThat(event -> "entrada.emitida".equals(event.type())));
     }
 
     @Test
     void confirmarPagoRechazadoLiberaAsientosYCancelaOrdenEnBD() {
         ReservaResponse reserva = reservaService.reservar(request("cliente-rechazo"), "idem-rechazo");
 
-        when(pasarelaClient.procesarPago(any()))
+        when(pasarelaClient.procesarPago(any(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(
                         new PagoResponse("txn-rechazada", "RECHAZADO", "Fondos insuficientes")));
 
@@ -378,18 +391,18 @@ class ReservaServiceTest {
         assertEquals(EstadoOrden.EXPIRADA, ordenRepo.findById(reserva.ordenId()).orElseThrow().getEstado());
 
         // No debe haberse llamado a la pasarela
-        verify(pasarelaClient, never()).procesarPago(any());
+        verify(pasarelaClient, never()).procesarPago(any(), anyString());
     }
 
     @Test
     void falloDeEmisionReembolsaLiberaAsientosYCompensaLaOrden() {
         ReservaResponse reserva = reservaService.reservar(request("cliente-reintento"), "idem-reintento");
 
-        when(pasarelaClient.procesarPago(any()))
+        when(pasarelaClient.procesarPago(any(), anyString()))
                 .thenReturn(CompletableFuture.completedFuture(
                         new PagoResponse("txn-unica-123", "APROBADO", "Pago aprobado")));
 
-        when(entradasClient.emitirEntradas(any()))
+        when(entradasClient.emitirEntradas(any(), anyString()))
                 .thenReturn(CompletableFuture.<EmisionResponse>failedFuture(
                         new NegocioException(HttpStatus.BAD_GATEWAY, "entradas-service 500")));
         when(pasarelaClient.reembolsarPago(any()))
@@ -411,7 +424,8 @@ class ReservaServiceTest {
                 "txn-unica-123".equals(reembolso.transaccionId())
                         && reembolso.monto().compareTo(new BigDecimal("100.00")) == 0));
         verify(entradasClient).eliminarEntradasPorOrden(reserva.ordenId().toString());
-        verify(pasarelaClient, times(1)).procesarPago(any());
+        verify(eventPublisher).publish(argThat(event -> "pago.compensado".equals(event.type())));
+        verify(pasarelaClient, times(1)).procesarPago(any(), anyString());
     }
 
     @Test
@@ -455,7 +469,51 @@ class ReservaServiceTest {
         assertTrue(exception.getMessage().contains("proceso"));
 
         // No debe llamarse a la pasarela
-        verify(pasarelaClient, never()).procesarPago(any());
+        verify(pasarelaClient, never()).procesarPago(any(), anyString());
+    }
+
+    @Test
+    void reconciliacionDePagoAprobadoEmiteEntradasYCompletaOrden() {
+        ReservaResponse reserva = reservaService.reservar(request("cliente-reconciliado"), "idem-reconciliado");
+        OrdenCompra orden = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        orden.setEstado(EstadoOrden.PROCESANDO_PAGO);
+        orden.setFechaCreacion(LocalDateTime.now().minusMinutes(3));
+        ordenRepo.saveAndFlush(orden);
+
+        when(pasarelaClient.consultarEstadoPagoPorOrden(eq(reserva.ordenId().toString())))
+                .thenReturn(CompletableFuture.completedFuture(
+                        new PagoResponse("txn-recuperado", "APROBADO", "Pago aprobado")));
+        when(entradasClient.emitirEntradas(any(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture(new EmisionResponse(
+                        reserva.ordenId().toString(), List.of())));
+
+        reconciliationJob.reconciliarOrdenesPendientes();
+
+        OrdenCompra reconciliada = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        assertEquals(EstadoOrden.COMPLETADA, reconciliada.getEstado());
+        assertEquals("txn-recuperado", reconciliada.getTransaccionPagoId());
+        verify(entradasClient).emitirEntradas(any(), eq("idem-reconciliado"));
+        verify(eventPublisher, times(2)).publish(any(DomainEvent.class));
+    }
+
+    @Test
+    void reconciliacionDePagoRechazadoLiberaLaReserva() {
+        ReservaResponse reserva = reservaService.reservar(request("cliente-rechazado-rec"), "idem-rechazado-rec");
+        OrdenCompra orden = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        orden.setEstado(EstadoOrden.PROCESANDO_PAGO);
+        orden.setFechaCreacion(LocalDateTime.now().minusMinutes(3));
+        ordenRepo.saveAndFlush(orden);
+
+        when(pasarelaClient.consultarEstadoPagoPorOrden(eq(reserva.ordenId().toString())))
+                .thenReturn(CompletableFuture.completedFuture(
+                        new PagoResponse("txn-rechazado-rec", "RECHAZADO", "Fondos insuficientes")));
+
+        reconciliationJob.reconciliarOrdenesPendientes();
+
+        OrdenCompra reconciliada = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        assertEquals(EstadoOrden.CANCELADA, reconciliada.getEstado());
+        assertEquals("Fondos insuficientes", reconciliada.getMotivoCompensacion());
+        assertTrue(bloqueoRepo.findByOrdenId(reserva.ordenId()).isEmpty());
     }
 
     private ReservaRequest request(String clienteId) {

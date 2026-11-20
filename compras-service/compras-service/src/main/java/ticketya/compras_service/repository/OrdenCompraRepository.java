@@ -22,6 +22,8 @@ public interface OrdenCompraRepository extends JpaRepository<OrdenCompra, UUID> 
 
     List<OrdenCompra> findByEstadoAndFechaExpiracionReservaBefore(EstadoOrden estado, LocalDateTime ahora);
 
+    List<OrdenCompra> findByEstadoAndFechaCreacionBefore(EstadoOrden estado, LocalDateTime fecha);
+
     @Query("select count(d) from OrdenCompra o join o.detalles d " +
             "where o.clienteId = :clienteId and o.eventoId = :eventoId and o.estado in :estados")
     long contarEntradasDelCliente(@Param("clienteId") String clienteId,

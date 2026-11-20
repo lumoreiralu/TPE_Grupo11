@@ -7,6 +7,7 @@ import com.ticketya.entradas.dto.ValidarQrRequest;
 import com.ticketya.entradas.dto.ValidarQrResponse;
 import com.ticketya.entradas.model.SolicitudDevolucion;
 import com.ticketya.entradas.service.EntradaService;
+import com.ticketya.entradas.service.RedisIdempotencyStore;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,14 +20,20 @@ import java.util.UUID;
 public class EntradaController {
 
     private final EntradaService entradaService;
+    private final RedisIdempotencyStore idempotencyStore;
 
-    public EntradaController(EntradaService entradaService) {
+    public EntradaController(EntradaService entradaService, RedisIdempotencyStore idempotencyStore) {
         this.entradaService = entradaService;
+        this.idempotencyStore = idempotencyStore;
     }
 
     @PostMapping("/emitir")
-    public ResponseEntity<EmisionEntradasResponse> emitirEntradas(@RequestBody EmisionEntradasRequest request) {
-        EmisionEntradasResponse response = entradaService.emitirEntradas(request);
+    public ResponseEntity<EmisionEntradasResponse> emitirEntradas(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody EmisionEntradasRequest request) {
+        EmisionEntradasResponse response = idempotencyStore.execute(
+                "emision", idempotencyKey, EmisionEntradasResponse.class,
+                () -> entradaService.emitirEntradas(request));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
