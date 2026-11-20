@@ -101,5 +101,18 @@ class EntradaServiceTest {
         assertEquals("cliente-a", entradas.get(0).clienteId());
         assertEquals("orden-a", entradas.get(0).ordenCompraId());
     }
-}
 
+    @Test
+    void eliminaTodasLasEntradasAsociadasAUnaOrden() {
+        entradaService.emitirEntradas(new EmisionEntradasRequest(
+                "orden-a",
+                "cliente-a",
+                "evento-1",
+                List.of(new ItemEntradaEmision("Platea", "A", 1))
+        ));
+
+        entradaService.eliminarEntradasPorOrden("orden-a");
+
+        assertTrue(entradaRepository.findByOrdenCompraId("orden-a").isEmpty());
+    }
+}

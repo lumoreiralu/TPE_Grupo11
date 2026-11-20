@@ -48,6 +48,27 @@ public class PasarelaClient {
                 .toFuture();
     }
 
+    @CircuitBreaker(name = "paymentGateway", fallbackMethod = "reembolsarPagoFallback")
+    @Retry(name = "paymentGateway")
+    @TimeLimiter(name = "paymentGateway")
+    public CompletableFuture<ReembolsoResponse> reembolsarPago(ReembolsoRequest request) {
+        return webClient.post()
+                .uri("/api/pagos/reembolsar")
+                .bodyValue(request)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response -> {
+                    HttpStatus status = HttpStatus.valueOf(response.statusCode().value());
+                    return Mono.error(new NegocioException(status,
+                            "Error al comunicarse con la pasarela de pagos: " + status.value()));
+                })
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        Mono.error(new RemoteServiceException(
+                                "La pasarela de pagos devolvió un error de servidor (5xx): "
+                                        + response.statusCode().value())))
+                .bodyToMono(ReembolsoResponse.class)
+                .toFuture();
+    }
+
     /**
      * Fallback de D4 para paymentGateway: no se vuelve a cobrar. El estado
      * PAGO_PENDIENTE y su reconciliación se completan en la saga (4.4-4.7);
@@ -64,5 +85,18 @@ public class PasarelaClient {
         return CompletableFuture.failedFuture(new NegocioException(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 "La pasarela de pagos no está disponible; no se realizó ningún cargo"));
+    }
+
+    private CompletableFuture<ReembolsoResponse> reembolsarPagoFallback(
+            ReembolsoRequest request, Throwable error) {
+        Throwable causa = Futures.unwrap(error);
+        if (causa instanceof NegocioException negocioException) {
+            return CompletableFuture.failedFuture(negocioException);
+        }
+
+        log.error("Fallback paymentGateway al reembolsar la transacción {}: {}",
+                request != null ? request.transaccionId() : "desconocida", causa.toString());
+        return CompletableFuture.failedFuture(new NegocioException(
+                HttpStatus.BAD_GATEWAY, "La pasarela no pudo completar el reembolso"));
     }
 }

@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -63,6 +64,14 @@ class EntradaControllerTest {
                 .andExpect(status().isOk());
 
         verify(entradaService).obtenerPorCliente("usuario-real");
+    }
+
+    @Test
+    void eliminarEntradasPorOrdenDevuelve204() throws Exception {
+        mockMvc.perform(delete("/api/entradas/orden/{ordenCompraId}", "orden-1"))
+                .andExpect(status().isNoContent());
+
+        verify(entradaService).eliminarEntradasPorOrden("orden-1");
     }
 
     @Test

@@ -29,9 +29,9 @@ public class ReservaService {
     private final BloqueoAsientoRepository bloqueoRepo;
     private final CupoSectorRepository cupoSectorRepo;
     private final EventosClient eventosClient;
-    private final PasarelaClient pasarelaClient;
     private final EntradasClient entradasClient;
     private final CompraTransaccionService transaccionService;
+    private final CompraSagaService compraSagaService;
 
     @Value("${compras.reserva.minutos}")
     private int minutosReserva;
@@ -43,16 +43,16 @@ public class ReservaService {
                           BloqueoAsientoRepository bloqueoRepo,
                           CupoSectorRepository cupoSectorRepo,
                           EventosClient eventosClient,
-                          PasarelaClient pasarelaClient,
                           EntradasClient entradasClient,
-                          CompraTransaccionService transaccionService) {
+                          CompraTransaccionService transaccionService,
+                          CompraSagaService compraSagaService) {
         this.ordenRepo = ordenRepo;
         this.bloqueoRepo = bloqueoRepo;
         this.cupoSectorRepo = cupoSectorRepo;
         this.eventosClient = eventosClient;
-        this.pasarelaClient = pasarelaClient;
         this.entradasClient = entradasClient;
         this.transaccionService = transaccionService;
+        this.compraSagaService = compraSagaService;
     }
 
     @Transactional
@@ -163,90 +163,7 @@ public class ReservaService {
 
     // Confirmación de pago con límites transaccionales independientes (sin llamadas HTTP dentro de transacciones de BD)
     public ConfirmacionPagoResponse confirmarPago(UUID ordenId, ConfirmarPagoRequest req) {
-        // 1. Iniciar procesamiento (atómico, evita concurrencia y valida expiración)
-        OrdenCompra orden = transaccionService.iniciarProcesamientoPago(ordenId);
-
-        if (orden.getEstado() == EstadoOrden.EXPIRADA) {
-            throw new NegocioException(HttpStatus.CONFLICT,
-                    "La reserva temporal ha expirado y los asientos han sido liberados");
-        }
-
-        if (orden.getEstado() == EstadoOrden.COMPLETADA) {
-            List<EmisionResponse.EntradaDTO> entradas = Futures.join(
-                    entradasClient.obtenerEntradasPorOrden(orden.getId().toString()));
-            return new ConfirmacionPagoResponse(
-                    orden.getId(),
-                    orden.getEstado(),
-                    orden.getTransaccionPagoId(),
-                    orden.getMontoTotal(),
-                    orden.getMetodoPago(),
-                    entradas,
-                    "La orden ya fue completada previamente"
-            );
-        }
-
-        String metodoPago = (req != null && req.metodoPago() != null && !req.metodoPago().isBlank())
-                ? req.metodoPago()
-                : "TARJETA";
-
-        // 2. Si no tenía pago confirmado previamente, procesar con la pasarela mock
-        if (orden.getEstado() != EstadoOrden.PAGO_CONFIRMADO) {
-            PagoRequest pagoRequest = new PagoRequest(orden.getMontoTotal(), orden.getId().toString(), metodoPago);
-            PagoResponse pagoResponse;
-            try {
-                pagoResponse = Futures.join(pasarelaClient.procesarPago(pagoRequest));
-            } catch (Exception e) {
-                transaccionService.revertirAEstadoReservado(ordenId);
-                throw e;
-            }
-
-            if (pagoResponse == null || !"APROBADO".equalsIgnoreCase(pagoResponse.estado())) {
-                String transId = pagoResponse != null ? pagoResponse.transaccionId() : null;
-                String motivo = (pagoResponse != null && pagoResponse.mensaje() != null)
-                        ? pagoResponse.mensaje()
-                        : "Pago rechazado por la pasarela";
-
-                // R5.3: El rechazo libera inmediatamente los asientos/cupos y cancela la orden de forma confirmada en BD
-                transaccionService.registrarPagoRechazado(ordenId, transId, metodoPago);
-                throw new NegocioException(HttpStatus.PAYMENT_REQUIRED, "El pago fue rechazado: " + motivo);
-            }
-
-            // Pago APROBADO: persistimos inmediatamente el pago y la venta definitiva de los asientos
-            transaccionService.registrarPagoAprobado(ordenId, pagoResponse.transaccionId(), metodoPago);
-        }
-
-        // 3. Emisión de entradas en entradas-service (fuera de la transacción de BD)
-        // Si falla aquí, el cobro ya está registrado como PAGO_CONFIRMADO; un reintento no vuelve a cobrar
-        // Recargamos con los detalles inicializados antes de salir de la transacción de BD.
-        orden = transaccionService.obtenerOrden(ordenId);
-        List<EmisionRequest.AsientoEntrada> asientos = orden.getDetalles().stream()
-                .map(d -> new EmisionRequest.AsientoEntrada(d.getSectorId(), d.getFila(), d.getAsiento()))
-                .toList();
-        EmisionRequest emisionReq = new EmisionRequest(
-                orden.getId().toString(),
-                orden.getClienteId(),
-                orden.getEventoId(),
-                asientos
-        );
-
-        EmisionResponse emisionResp = Futures.join(entradasClient.emitirEntradas(emisionReq));
-        List<EmisionResponse.EntradaDTO> entradas = (emisionResp != null && emisionResp.entradas() != null)
-                ? emisionResp.entradas()
-                : List.of();
-
-        // 4. Marcar orden como COMPLETADA
-        transaccionService.registrarOrdenCompletada(ordenId);
-        orden = transaccionService.obtenerOrden(ordenId);
-
-        return new ConfirmacionPagoResponse(
-                orden.getId(),
-                orden.getEstado(),
-                orden.getTransaccionPagoId(),
-                orden.getMontoTotal(),
-                orden.getMetodoPago(),
-                entradas,
-                "Compra completada exitosamente"
-        );
+        return compraSagaService.confirmarPago(ordenId, req);
     }
 
     public ConfirmacionPagoResponse consultarOrden(UUID ordenId) {

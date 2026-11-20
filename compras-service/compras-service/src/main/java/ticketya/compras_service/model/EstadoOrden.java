@@ -5,6 +5,7 @@ public enum EstadoOrden {
     PROCESANDO_PAGO,
     PAGO_CONFIRMADO,
     COMPLETADA,
+    COMPENSADA,
     EXPIRADA,
     CANCELADA
 }

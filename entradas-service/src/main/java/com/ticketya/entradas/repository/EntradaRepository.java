@@ -12,6 +12,8 @@ public interface EntradaRepository extends JpaRepository<Entrada, UUID> {
 
     List<Entrada> findByOrdenCompraId(String ordenCompraId);
 
+    void deleteByOrdenCompraId(String ordenCompraId);
+
     Optional<Entrada> findByCodigoQrHash(String codigoQrHash);
 
     List<Entrada> findByClienteId(String clienteId);

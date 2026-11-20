@@ -129,6 +129,21 @@ public class CompraTransaccionService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void registrarOrdenCompensada(UUID ordenId, String motivo) {
+        ordenRepo.findByIdConDetalles(ordenId).ifPresent(o -> {
+            if (o.getEstado() == EstadoOrden.COMPENSADA) {
+                return;
+            }
+            restaurarCuposGenerales(o);
+            bloqueoRepo.deleteByOrdenId(ordenId);
+            o.setEstado(EstadoOrden.COMPENSADA);
+            o.setMotivoCompensacion(motivo);
+            ordenRepo.saveAndFlush(o);
+        });
+        bloqueoRepo.flush();
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void revertirAEstadoReservado(UUID ordenId) {
         ordenRepo.findById(ordenId).ifPresent(o -> {
             if (o.getEstado() == EstadoOrden.PROCESANDO_PAGO) {

@@ -67,10 +67,30 @@ public class EntradasClient {
                 .toFuture();
     }
 
+    @CircuitBreaker(name = "ticketService", fallbackMethod = "eliminarEntradasPorOrdenFallback")
+    @Retry(name = "ticketService")
+    @TimeLimiter(name = "ticketService")
+    public CompletableFuture<Void> eliminarEntradasPorOrden(String ordenCompraId) {
+        return webClient.delete()
+                .uri("/api/entradas/orden/{ordenCompraId}", ordenCompraId)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response -> {
+                    HttpStatus status = HttpStatus.valueOf(response.statusCode().value());
+                    return Mono.error(new NegocioException(status,
+                            "Error al comunicarse con entradas-service: " + status.value()));
+                })
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        Mono.error(new RemoteServiceException(
+                                "El servicio de entradas devolvió un error de servidor (5xx): "
+                                        + response.statusCode().value())))
+                .toBodilessEntity()
+                .then()
+                .toFuture();
+    }
+
     /**
-     * Fallback de D4 para ticketService. La compensación completa de la saga
-     * se incorpora en 4.4; por ahora se devuelve un error controlado para que
-     * la orden quede en PAGO_CONFIRMADO y pueda reintentarse sin volver a cobrar.
+     * Fallback de D4 para ticketService. Devuelve un error controlado para que
+     * CompraSagaService pueda ejecutar la compensación de la compra.
      */
     private CompletableFuture<EmisionResponse> emitirEntradasFallback(EmisionRequest request, Throwable error) {
         Throwable causa = Futures.unwrap(error);
@@ -82,7 +102,7 @@ public class EntradasClient {
                 request != null ? request.ordenCompraId() : "desconocida", causa.toString());
         return CompletableFuture.failedFuture(new NegocioException(
                 HttpStatus.BAD_GATEWAY,
-                "entradas-service no pudo emitir las entradas; la orden queda pagada para reintentar"));
+                "entradas-service no pudo emitir las entradas; la saga gestionará la compensación"));
     }
 
     private CompletableFuture<List<EmisionResponse.EntradaDTO>> obtenerEntradasPorOrdenFallback(
@@ -90,5 +110,17 @@ public class EntradasClient {
         log.warn("Fallback ticketService al consultar entradas de la orden {}: {}",
                 ordenCompraId, Futures.unwrap(error).toString());
         return CompletableFuture.completedFuture(List.of());
+    }
+
+    private CompletableFuture<Void> eliminarEntradasPorOrdenFallback(String ordenCompraId, Throwable error) {
+        Throwable causa = Futures.unwrap(error);
+        if (causa instanceof NegocioException negocioException) {
+            return CompletableFuture.failedFuture(negocioException);
+        }
+
+        log.error("Fallback ticketService al eliminar entradas de la orden {}: {}",
+                ordenCompraId, causa.toString());
+        return CompletableFuture.failedFuture(new NegocioException(
+                HttpStatus.BAD_GATEWAY, "No se pudieron eliminar las entradas de la orden"));
     }
 }

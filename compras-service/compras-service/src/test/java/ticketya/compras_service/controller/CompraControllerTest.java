@@ -11,6 +11,7 @@ import ticketya.compras_service.dto.ConfirmacionPagoResponse;
 import ticketya.compras_service.dto.ReservaResponse;
 import ticketya.compras_service.model.EstadoOrden;
 import ticketya.compras_service.repository.BloqueoAsientoRepository;
+import ticketya.compras_service.service.CompraSagaService;
 import ticketya.compras_service.service.ReservaService;
 
 import java.math.BigDecimal;
@@ -35,6 +36,9 @@ class CompraControllerTest {
 
     @MockitoBean
     private ReservaService reservaService;
+
+    @MockitoBean
+    private CompraSagaService compraSagaService;
 
     @MockitoBean
     private BloqueoAsientoRepository bloqueoAsientoRepo;
@@ -109,6 +113,20 @@ class CompraControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ordenId").value(ordenId.toString()))
                 .andExpect(jsonPath("$.estado").value("COMPLETADA"));
+    }
+
+    @Test
+    void compensarOrdenDevuelveEstadoCompensada() throws Exception {
+        UUID ordenId = UUID.randomUUID();
+        when(compraSagaService.compensarManualmente(ordenId)).thenReturn(new ConfirmacionPagoResponse(
+                ordenId, EstadoOrden.COMPENSADA, "txn-1", new BigDecimal("100.00"),
+                "TARJETA", List.of(), "Orden compensada exitosamente"));
+
+        mockMvc.perform(post("/api/compras/{id}/compensar", ordenId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("COMPENSADA"));
+
+        verify(compraSagaService).compensarManualmente(ordenId);
     }
 
     @Test

@@ -44,6 +44,8 @@ public class OrdenCompra {
 
     private String transaccionPagoId;
 
+    private String motivoCompensacion;
+
     // Clave que manda el cliente para que un reintento no cree otra orden
     @Column(unique = true)
     private String idempotencyKey;

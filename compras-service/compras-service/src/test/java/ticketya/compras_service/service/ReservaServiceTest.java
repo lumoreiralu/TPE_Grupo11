@@ -48,6 +48,9 @@ class ReservaServiceTest {
     private ReservaService reservaService;
 
     @Autowired
+    private CompraSagaService compraSagaService;
+
+    @Autowired
     private CompraTransaccionService transaccionService;
 
     @Autowired
@@ -379,41 +382,62 @@ class ReservaServiceTest {
     }
 
     @Test
-    void reintentoTrasFalloDeEmisionNoVuelveACobrar() {
+    void falloDeEmisionReembolsaLiberaAsientosYCompensaLaOrden() {
         ReservaResponse reserva = reservaService.reservar(request("cliente-reintento"), "idem-reintento");
 
         when(pasarelaClient.procesarPago(any()))
                 .thenReturn(CompletableFuture.completedFuture(
                         new PagoResponse("txn-unica-123", "APROBADO", "Pago aprobado")));
 
-        // Simular que entradas-service falla en el primer intento
         when(entradasClient.emitirEntradas(any()))
                 .thenReturn(CompletableFuture.<EmisionResponse>failedFuture(
-                                new NegocioException(HttpStatus.BAD_GATEWAY, "entradas-service 500")))
-                .thenReturn(CompletableFuture.completedFuture(new EmisionResponse(
-                        reserva.ordenId().toString(),
-                        List.of(new EmisionResponse.EntradaDTO(
-                                "ent-1", reserva.ordenId().toString(), "cliente-reintento", EVENTO_ID,
-                                SECTOR_ID, "A", 1, "qr-1", "EMITIDA", LocalDateTime.now().toString())))));
+                        new NegocioException(HttpStatus.BAD_GATEWAY, "entradas-service 500")));
+        when(pasarelaClient.reembolsarPago(any()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        new ReembolsoResponse("refund-1", "REEMBOLSADO", "Reintegro procesado")));
+        when(entradasClient.eliminarEntradasPorOrden(reserva.ordenId().toString()))
+                .thenReturn(CompletableFuture.completedFuture(null));
 
-        // Primer intento de confirmación falla al emitir
         assertThrows(NegocioException.class, () ->
                 reservaService.confirmarPago(reserva.ordenId(), new ConfirmarPagoRequest("TARJETA")));
 
-        // La orden debe estar en PAGO_CONFIRMADO con el ID de transacción guardado
         OrdenCompra ordenEnBD = ordenRepo.findById(reserva.ordenId()).orElseThrow();
-        assertEquals(EstadoOrden.PAGO_CONFIRMADO, ordenEnBD.getEstado());
+        assertEquals(EstadoOrden.COMPENSADA, ordenEnBD.getEstado());
         assertEquals("txn-unica-123", ordenEnBD.getTransaccionPagoId());
+        assertNotNull(ordenEnBD.getMotivoCompensacion());
+        assertTrue(bloqueoRepo.findByOrdenId(reserva.ordenId()).isEmpty());
 
-        // Segundo intento: Reintento por parte del cliente
-        ConfirmacionPagoResponse respuestaReintento = reservaService.confirmarPago(
-                reserva.ordenId(), new ConfirmarPagoRequest("TARJETA"));
-
-        assertEquals(EstadoOrden.COMPLETADA, respuestaReintento.estado());
-        assertEquals(1, respuestaReintento.entradas().size());
-
-        // Verificar que la pasarela se llamó exactamente UNA sola vez
+        verify(pasarelaClient).reembolsarPago(argThat(reembolso ->
+                "txn-unica-123".equals(reembolso.transaccionId())
+                        && reembolso.monto().compareTo(new BigDecimal("100.00")) == 0));
+        verify(entradasClient).eliminarEntradasPorOrden(reserva.ordenId().toString());
         verify(pasarelaClient, times(1)).procesarPago(any());
+    }
+
+    @Test
+    void compensacionManualReembolsaEliminaEntradasYLiberaReserva() {
+        ReservaResponse reserva = reservaService.reservar(request("cliente-admin"), "idem-admin");
+        OrdenCompra orden = ordenRepo.findById(reserva.ordenId()).orElseThrow();
+        orden.setEstado(EstadoOrden.PAGO_CONFIRMADO);
+        orden.setTransaccionPagoId("txn-admin");
+        orden.setMetodoPago("TARJETA");
+        ordenRepo.saveAndFlush(orden);
+
+        when(pasarelaClient.reembolsarPago(any()))
+                .thenReturn(CompletableFuture.completedFuture(
+                        new ReembolsoResponse("refund-admin", "REEMBOLSADO", "Reintegro procesado")));
+        when(entradasClient.eliminarEntradasPorOrden(reserva.ordenId().toString()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        ConfirmacionPagoResponse respuesta = compraSagaService.compensarManualmente(reserva.ordenId());
+
+        assertEquals(EstadoOrden.COMPENSADA, respuesta.estado());
+        assertEquals(EstadoOrden.COMPENSADA,
+                ordenRepo.findById(reserva.ordenId()).orElseThrow().getEstado());
+        assertTrue(bloqueoRepo.findByOrdenId(reserva.ordenId()).isEmpty());
+        verify(pasarelaClient).reembolsarPago(argThat(reembolso ->
+                "txn-admin".equals(reembolso.transaccionId())));
+        verify(entradasClient).eliminarEntradasPorOrden(reserva.ordenId().toString());
     }
 
     @Test

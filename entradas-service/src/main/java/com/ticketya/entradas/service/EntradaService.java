@@ -104,6 +104,14 @@ public class EntradaService {
                 .toList();
     }
 
+    @Transactional
+    public void eliminarEntradasPorOrden(String ordenCompraId) {
+        if (ordenCompraId == null || ordenCompraId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ordenCompraId es obligatorio");
+        }
+        entradaRepository.deleteByOrdenCompraId(ordenCompraId);
+    }
+
     public List<EntradaResponseDTO> obtenerPorCliente(String clienteId) {
         return entradaRepository.findByClienteId(clienteId)
                 .stream()

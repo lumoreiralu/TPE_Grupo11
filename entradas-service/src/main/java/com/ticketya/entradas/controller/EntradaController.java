@@ -36,6 +36,12 @@ public class EntradaController {
         return ResponseEntity.ok(entradas);
     }
 
+    @DeleteMapping("/orden/{ordenCompraId}")
+    public ResponseEntity<Void> eliminarPorOrden(@PathVariable String ordenCompraId) {
+        entradaService.eliminarEntradasPorOrden(ordenCompraId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/devolucion")
     public ResponseEntity<SolicitudDevolucion> solicitarDevolucion(@PathVariable UUID id, @RequestHeader(value = "X-User-Id", required = false) String xUserId, @RequestParam(required = false) String clienteId, @RequestParam(required = false) String motivo){
         String resolvedClienteId = (xUserId != null) ? xUserId : clienteId;
@@ -79,4 +85,3 @@ public class EntradaController {
         return ResponseEntity.ok(entradaService.validarQr(request, validadorId, roles));
     }
 }
-

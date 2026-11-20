@@ -48,9 +48,9 @@
 - [x] 4.1 Crear beans `WebClient` con `connectTimeout=2s`/`responseTimeout=2s` y migrar los `RestClient.create("http://localhost:...")` de `compras-service`, `entradas-service` y `eventos-service`.
 - [x] 4.2 Agregar dependencias Resilience4j y configurar instancias `paymentGateway`, `ticketService` y `eventService` en `application.yml`.
 - [x] 4.3 Anotar los clientes con `@Retry`, `@TimeLimiter` (métodos `CompletableFuture`) y `@CircuitBreaker(fallbackMethod=...)`; implementar los fallbacks de `design.md` D4.
-- [ ] 4.4 Extraer `CompraSagaService` desde `ReservaService.confirmarPago`: reserva → pago → emisión → confirmación en un `try`, compensación en un `catch`.
-- [ ] 4.5 Agregar `DELETE /api/entradas/orden/{ordenCompraId}` para borrar entradas emitidas durante la compensación.
-- [ ] 4.6 Agregar `POST /api/compras/{id}/compensar` (rol `ROLE_ADMINISTRADOR`) y reutilizar `POST /api/pagos/reembolsar` de `pasarela-mock-service`.
+- [x] 4.4 Extraer `CompraSagaService` desde `ReservaService.confirmarPago`: reserva → pago → emisión → confirmación en un `try`, compensación en un `catch`.
+- [x] 4.5 Agregar `DELETE /api/entradas/orden/{ordenCompraId}` para borrar entradas emitidas durante la compensación.
+- [x] 4.6 Agregar `POST /api/compras/{id}/compensar` (rol `ROLE_ADMINISTRADOR`) y reutilizar `POST /api/pagos/reembolsar` de `pasarela-mock-service`.
 - [ ] 4.7 Agregar `OrderReconciliationJob` cada 30 s para órdenes `PROCESANDO_PAGO` con más de 2 minutos; consultar estado real y converger.
 - [ ] 4.8 Enviar `Idempotency-Key` en pago y emisión; almacenar resultado en Redis TTL 24 h y devolver el mismo resultado en reintentos.
 - [ ] 4.9 Publicar `pago.aprobado`, `entrada.emitida` y `pago.compensado` desde la saga.
