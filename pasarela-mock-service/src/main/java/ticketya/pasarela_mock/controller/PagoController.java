@@ -54,8 +54,14 @@ public class PagoController {
     }
 
     @PostMapping("/reembolsar")
-    public ResponseEntity<ReembolsoResponse> reembolsarPago(@RequestBody ReembolsoRequest request) {
-        ReembolsoResponse response = pagoService.reembolsarPago(request);
+    public ResponseEntity<ReembolsoResponse> reembolsarPago(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @RequestBody ReembolsoRequest request) {
+        // La clave determinística evita reintegrar dos veces la misma orden
+        // cuando se reintenta o se repite la cancelación de un evento.
+        ReembolsoResponse response = idempotencyStore.execute(
+                "reembolso", idempotencyKey, ReembolsoResponse.class,
+                () -> pagoService.reembolsarPago(request));
         return ResponseEntity.ok(response);
     }
 }

@@ -9,7 +9,10 @@ import com.ticketya.entradas.dto.EntradaResponseDTO;
 import com.ticketya.entradas.dto.ItemEntradaEmision;
 import com.ticketya.entradas.dto.ValidarQrRequest;
 import com.ticketya.entradas.dto.ValidarQrResponse;
+import com.ticketya.entradas.client.ComprasClient.OrdenInfo;
 import com.ticketya.entradas.filter.CorrelationIdFilter;
+import com.ticketya.entradas.messaging.DomainEvent;
+import com.ticketya.entradas.messaging.DomainEventPublisher;
 import com.ticketya.entradas.model.Entrada;
 import com.ticketya.entradas.model.EstadoEntrada;
 import com.ticketya.entradas.model.EstadoSolicitudDevolucion;
@@ -29,8 +32,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -45,14 +50,16 @@ public class EntradaService {
     private final ComprasClient comprasClient;
     private final EventosClient eventosClient;
     private final PasarelaClient pasarelaClient;
+    private final DomainEventPublisher eventPublisher;
 
-    public EntradaService(EntradaRepository entradaRepository, QrCodeGenerator qrCodeGenerator, SolicitudDevolucionRepository solicitudRepo, ComprasClient comprasClient, EventosClient eventosClient, PasarelaClient pasarelaClient) {
+    public EntradaService(EntradaRepository entradaRepository, QrCodeGenerator qrCodeGenerator, SolicitudDevolucionRepository solicitudRepo, ComprasClient comprasClient, EventosClient eventosClient, PasarelaClient pasarelaClient, DomainEventPublisher eventPublisher) {
         this.entradaRepository = entradaRepository;
         this.qrCodeGenerator = qrCodeGenerator;
         this.solicitudRepo = solicitudRepo;
         this.comprasClient = comprasClient;
         this.eventosClient = eventosClient;
         this.pasarelaClient = pasarelaClient;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -187,14 +194,21 @@ public class EntradaService {
         // B. Liberamos el asiento en compras-service
         Futures.join(comprasClient.liberarAsiento(entrada.getEventoId(), entrada.getSectorNombre(), entrada.getFila(), entrada.getAsiento()));
 
-        // C. Solicitamos el reembolso a la pasarela
-        Futures.join(pasarelaClient.solicitarReembolso(entrada.getOrdenCompraId(), entrada.getClienteId()));
+        // C. Solicitamos el reembolso a la pasarela con datos reales de la orden
+        OrdenInfo orden = Futures.join(comprasClient.obtenerOrden(entrada.getOrdenCompraId()));
+        Futures.join(pasarelaClient.solicitarReembolso(
+                orden.transaccionPagoId(),
+                orden.montoTotal(),
+                "devolucion:" + entrada.getOrdenCompraId()));
 
         // D. Actualizamos la solicitud
         solicitud.setEstado(EstadoSolicitudDevolucion.APROBADA);
         solicitud.setFechaResolucion(LocalDateTime.now());
         solicitud.setRespuestaAdmin(respuestaAdmin);
         solicitudRepo.save(solicitud);
+
+        // E. Publicamos el evento de dominio para notificar al cliente
+        publicarDevolucionAprobada(entrada, respuestaAdmin);
     }
 
     // 3. RECHAZAR DEVOLUCIÓN (Admin)
@@ -223,23 +237,51 @@ public class EntradaService {
     @Transactional
     public int cancelarEntradasPorEvento(String eventoId) {
         List<Entrada> activas = entradaRepository.findByEventoIdAndEstadoNot(eventoId, EstadoEntrada.CANCELADA);
-        Set<String> ordenesReintegradas = new HashSet<>();
+        Set<String> ordenesReintegradas = new LinkedHashSet<>();
         for (Entrada entrada : activas) {
             entrada.setEstado(EstadoEntrada.CANCELADA);
             Futures.join(comprasClient.liberarAsiento(entrada.getEventoId(), entrada.getSectorNombre(), entrada.getFila(), entrada.getAsiento()));
 
             String ordenId = entrada.getOrdenCompraId();
-            if (!ordenesReintegradas.contains(ordenId)) {
+            if (ordenId != null && !ordenId.isBlank() && ordenesReintegradas.add(ordenId)) {
                 try {
-                    Futures.join(pasarelaClient.solicitarReembolso(ordenId, entrada.getClienteId()));
-                    ordenesReintegradas.add(ordenId);
+                    OrdenInfo orden = Futures.join(comprasClient.obtenerOrden(ordenId));
+                    // Clave determinística: un mismo evento nunca reintegra dos
+                    // veces la misma orden, aunque se repita la cancelación o la
+                    // orden tenga varias entradas.
+                    String idempotencyKey = eventoId + ":" + ordenId;
+                    Futures.join(pasarelaClient.solicitarReembolso(
+                            orden.transaccionPagoId(), orden.montoTotal(), idempotencyKey));
+                    publicarPagoCompensado(entrada, eventoId);
                 } catch (Exception e) {
-                    log.error("Error al reintegrar orden {} en cancelacion de evento {}: {}", ordenId, eventoId, e.getMessage());
+                    log.error("Error al reintegrar orden {} en cancelacion de evento {}: {}",
+                            ordenId, eventoId, e.getMessage());
                 }
             }
         }
         entradaRepository.saveAll(activas);
         return activas.size();
+    }
+
+    private void publicarDevolucionAprobada(Entrada entrada, String motivo) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("ordenId", entrada.getOrdenCompraId());
+        payload.put("clienteId", entrada.getClienteId());
+        payload.put("entradaId", entrada.getId() != null ? entrada.getId().toString() : null);
+        payload.put("eventoId", entrada.getEventoId());
+        payload.put("motivo", motivo != null && !motivo.isBlank() ? motivo : "Devolución aprobada");
+        eventPublisher.publish(DomainEvent.of(
+                "devolucion.aprobada", entrada.getOrdenCompraId(), payload));
+    }
+
+    private void publicarPagoCompensado(Entrada entrada, String eventoId) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("ordenId", entrada.getOrdenCompraId());
+        payload.put("clienteId", entrada.getClienteId());
+        payload.put("eventoId", eventoId);
+        payload.put("motivo", "Evento cancelado");
+        eventPublisher.publish(DomainEvent.of(
+                "pago.compensado", entrada.getOrdenCompraId(), payload));
     }
 
     // 5. VALIDACIÓN DE ENTRADAS POR QR

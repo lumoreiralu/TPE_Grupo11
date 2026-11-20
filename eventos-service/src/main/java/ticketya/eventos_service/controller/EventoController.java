@@ -9,6 +9,8 @@ import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ticketya.eventos_service.client.EntradasClient;
+import ticketya.eventos_service.messaging.DomainEvent;
+import ticketya.eventos_service.messaging.DomainEventPublisher;
 import ticketya.eventos_service.model.EstadoEvento;
 import ticketya.eventos_service.model.Evento;
 import ticketya.eventos_service.model.TipoEvento;
@@ -34,6 +36,9 @@ public class EventoController {
 
     @Autowired
     private EntradasClient entradasClient;
+
+    @Autowired
+    private DomainEventPublisher eventPublisher;
 
     @PostMapping
     public ResponseEntity<Evento> crearEvento(@RequestBody Evento evento) {
@@ -132,6 +137,17 @@ String ordenarPor) {
         } catch(Exception e){
             log.error("Aviso al notificar a entradas-service para el evento {}: {}", id, e.getMessage());
         }
+
+        //3. Publicar el evento de dominio: notifica a los compradores e invalida
+        //   la caché del catálogo mediante invalidacion-cache.q.
+        String nombre = evento.getNombre() != null && !evento.getNombre().isBlank()
+                ? evento.getNombre()
+                : "Evento " + id;
+        eventPublisher.publish(DomainEvent.of("evento.cancelado", id, Map.of(
+                "eventoId", id,
+                "nombre", nombre,
+                "detalle", "El evento fue cancelado y tus entradas serán reintegradas.")));
+
         return ResponseEntity.ok("Evento cancelado y proceso de reintegros disparado");
     }
 }

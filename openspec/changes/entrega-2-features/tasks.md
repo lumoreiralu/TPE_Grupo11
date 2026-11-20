@@ -67,11 +67,11 @@
 ## 6. Devoluciones y cancelación masiva (R6–R8)
 
 - [x] 6.1 `solicitarDevolucion` ya valida plazo de 72 h, estado `EMITIDA`, propiedad del cliente y solicitud pendiente duplicada.
-- [ ] 6.2 Implementar `POST /api/entradas/devoluciones/{solicitudId}/rechazar` con `{ motivo }`, estado `RECHAZADA` y entrada `EMITIDA` (R7.2).
+- [x] 6.2 Implementar `POST /api/entradas/devoluciones/{solicitudId}/rechazar` con `{ motivo }`, estado `RECHAZADA` y entrada `EMITIDA` (R7.2).
 - [x] 6.3 `aprobarDevolucion` ya cancela la entrada, libera el asiento vía `ComprasClient` y solicita el reembolso vía `PasarelaClient` (R7.1).
-- [ ] 6.4 Ampliar `POST /api/entradas/eventos/{eventoId}/cancelar` para reintegrar cada orden afectada con idempotencia derivada de `eventoId + ordenId` (R8.2).
-- [ ] 6.5 Publicar `devolucion.aprobada`, `evento.cancelado` y `pago.compensado`; invalidar caché del evento.
-- [ ] 6.6 **Tests:** rechazo conserva entrada, aprobación reintegra y libera, cancelación masiva reintegra una sola vez por orden, solicitudes con menos de 72 h se rechazan, `DevolucionServiceTest` y `EntradaServiceTest` siguen pasando.
+- [x] 6.4 Ampliar `POST /api/entradas/eventos/{eventoId}/cancelar` para reintegrar cada orden afectada con idempotencia derivada de `eventoId + ordenId` (R8.2).
+- [x] 6.5 Publicar `devolucion.aprobada`, `evento.cancelado` y `pago.compensado`; invalidar caché del evento.
+- [x] 6.6 **Tests:** rechazo conserva entrada, aprobación reintegra y libera, cancelación masiva reintegra una sola vez por orden, solicitudes con menos de 72 h se rechazan, `DevolucionServiceTest` y `EntradaServiceTest` siguen pasando.
 
 ## 7. Validación de entradas por QR (R9)
 
@@ -92,18 +92,18 @@
 
 ## 9. Notificaciones (R11)
 
-- [ ] 9.1 Agregar `spring-boot-starter-mail` y `JavaMailSender` apuntando a MailHog en local.
-- [ ] 9.2 Implementar `NotificationService.enviarConfirmacion(...)` y `enviarAvisoEvento(...)` con plantilla simple de texto.
-- [ ] 9.3 Suscribir `notificaciones.q` a `pago.aprobado`, `devolucion.aprobada`, `evento.cancelado` y `evento.modificado`.
-- [ ] 9.4 Aplicar reintento y registro de fallo de `async-messaging` sin afectar la compra.
-- [ ] 9.5 **Tests:** correo de confirmación, aviso a todos los compradores del evento, fallo temporal reintenta y no revienta la saga.
+- [x] 9.1 Agregar `spring-boot-starter-mail` y `JavaMailSender` apuntando a MailHog en local.
+- [x] 9.2 Implementar `NotificationService.enviarConfirmacion(...)` y `enviarAvisoEvento(...)` con plantilla simple de texto.
+- [x] 9.3 Suscribir `notificaciones.q` a `pago.aprobado`, `devolucion.aprobada`, `evento.cancelado` y `evento.modificado`.
+- [x] 9.4 Aplicar reintento y registro de fallo de `async-messaging` sin afectar la compra.
+- [x] 9.5 **Tests:** correo de confirmación, aviso a todos los compradores del evento, fallo temporal reintenta y no revienta la saga.
 
 ## 10. Métricas de recaudación y ocupación (R12)
 
-- [ ] 10.1 Implementar `GET /api/compras/metricas/{eventoId}/recaudacion` sumando órdenes `CONFIRMADA` y descontando `COMPENSADA`/reembolsadas.
-- [ ] 10.2 Implementar `GET /api/entradas/metricas/{eventoId}/ocupacion` con vendidas/disponibles/devueltas y porcentaje por sector.
-- [ ] 10.3 Documentar ambos endpoints en `docs/openapi.yaml` con rol `ROLE_ADMINISTRADOR|ROLE_ORGANIZADOR`.
-- [ ] 10.4 **Tests:** recaudación coincide con órdenes pagadas, ocupación por sector suma el total de entradas, sector sin entradas devuelve 0%.
+- [x] 10.1 Implementar `GET /api/compras/metricas/{eventoId}/recaudacion` sumando órdenes `CONFIRMADA` y descontando `COMPENSADA`/reembolsadas.
+- [x] 10.2 Implementar `GET /api/entradas/metricas/{eventoId}/ocupacion` con vendidas/disponibles/devueltas y porcentaje por sector.
+- [x] 10.3 Documentar ambos endpoints en `docs/openapi.yaml` con rol `ROLE_ADMINISTRADOR|ROLE_ORGANIZADOR`.
+- [x] 10.4 **Tests:** recaudación coincide con órdenes pagadas, ocupación por sector suma el total de entradas, sector sin entradas devuelve 0%.
 
 ## 11. Docker, compose y smoke E2E
 

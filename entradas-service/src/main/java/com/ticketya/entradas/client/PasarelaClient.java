@@ -15,6 +15,8 @@ import reactor.core.publisher.Mono;
 
 import com.ticketya.entradas.util.Futures;
 
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -29,18 +31,32 @@ public class PasarelaClient {
         this.webClient = webClient;
     }
 
+    /**
+     * Solicita el reintegro de una orden. La {@code Idempotency-Key} debe ser
+     * determinística (por ejemplo {@code eventoId + ordenId}) para que la
+     * pasarela no procese dos veces el mismo reembolso.
+     */
     @CircuitBreaker(name = "paymentGateway", fallbackMethod = "solicitarReembolsoFallback")
     @Retry(name = "paymentGateway")
     @TimeLimiter(name = "paymentGateway")
-    public CompletableFuture<Void> solicitarReembolso(String ordenCompraId, String clienteId) {
-        return webClient.post()
+    public CompletableFuture<Void> solicitarReembolso(String transaccionId, BigDecimal monto,
+                                                      String idempotencyKey) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("transaccionId", transaccionId);
+        body.put("monto", monto);
+
+        WebClient.RequestHeadersSpec<?> request = webClient.post()
                 .uri("/api/pagos/reembolsar")
-                .bodyValue(Map.of("ordenId", ordenCompraId, "clienteId", clienteId))
-                .retrieve()
+                .bodyValue(body);
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            request = request.header("Idempotency-Key", idempotencyKey);
+        }
+
+        return request.retrieve()
                 .onStatus(HttpStatusCode::is4xxClientError, response ->
                         Mono.error(new ResponseStatusException(
                                 HttpStatus.valueOf(response.statusCode().value()),
-                                "La pasarela rechazó el reembolso de la orden " + ordenCompraId)))
+                                "La pasarela rechazó el reembolso de la transacción " + transaccionId)))
                 .onStatus(HttpStatusCode::is5xxServerError, response ->
                         Mono.error(new RemoteServiceException(
                                 "La pasarela devolvió " + response.statusCode().value())))
@@ -50,14 +66,20 @@ public class PasarelaClient {
     }
 
     /**
-     * Fallback de D4 para paymentGateway en el flujo de reembolsos: se registra
-     * el aviso y se continúa, igual que el comportamiento previo de este
-     * cliente best-effort. La compensación explícita llega en 4.5-4.6.
+     * Si la pasarela no responde se propaga el fallo para que la devolución no
+     * quede marcada como aprobada sin reintegro. En la cancelación masiva cada
+     * orden se maneja de forma aislada y el error se registra.
      */
-    private CompletableFuture<Void> solicitarReembolsoFallback(String ordenCompraId, String clienteId,
-                                                                Throwable error) {
-        log.warn("Fallback paymentGateway al solicitar reembolso de la orden {}: {}",
-                ordenCompraId, Futures.unwrap(error).toString());
-        return CompletableFuture.completedFuture(null);
+    private CompletableFuture<Void> solicitarReembolsoFallback(String transaccionId, BigDecimal monto,
+                                                                String idempotencyKey, Throwable error) {
+        Throwable causa = Futures.unwrap(error);
+        if (causa instanceof ResponseStatusException responseStatusException) {
+            return CompletableFuture.failedFuture(responseStatusException);
+        }
+        log.error("Fallback paymentGateway al reembolsar la transacción {}: {}",
+                transaccionId, causa.toString());
+        return CompletableFuture.failedFuture(new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "La pasarela no pudo completar el reembolso de la transacción " + transaccionId));
     }
 }

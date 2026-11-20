@@ -26,6 +26,15 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
 
+  # Buzón de correo local para notificaciones (SMTP 1025 / UI http://localhost:8025)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: ticketya-mailhog
+    restart: always
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   mongo_data:
   postgres_data:

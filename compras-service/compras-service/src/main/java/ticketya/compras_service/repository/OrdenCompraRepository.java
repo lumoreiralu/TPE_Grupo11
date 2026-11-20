@@ -7,6 +7,7 @@ import ticketya.compras_service.model.OrdenCompra;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -29,4 +30,16 @@ public interface OrdenCompraRepository extends JpaRepository<OrdenCompra, UUID> 
     long contarEntradasDelCliente(@Param("clienteId") String clienteId,
                                   @Param("eventoId") String eventoId,
                                   @Param("estados") List<EstadoOrden> estados);
+
+    // Métricas de recaudación (R12.1): suma de montos y cantidad de órdenes por estado.
+    // Devuelve null cuando no hay órdenes que cumplan el filtro.
+    @Query("select sum(o.montoTotal) from OrdenCompra o " +
+            "where o.eventoId = :eventoId and o.estado in :estados")
+    BigDecimal sumarMontoPorEventoYEstados(@Param("eventoId") String eventoId,
+                                           @Param("estados") List<EstadoOrden> estados);
+
+    @Query("select count(o) from OrdenCompra o " +
+            "where o.eventoId = :eventoId and o.estado in :estados")
+    long contarPorEventoYEstados(@Param("eventoId") String eventoId,
+                                 @Param("estados") List<EstadoOrden> estados);
 }

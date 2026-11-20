@@ -79,6 +79,18 @@ class EntradaControllerTest {
     }
 
     @Test
+    void rechazarDevolucionDevuelve200ConMotivo() throws Exception {
+        UUID solicitudId = UUID.randomUUID();
+
+        mockMvc.perform(post("/api/entradas/devoluciones/{solicitudId}/rechazar", solicitudId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"motivo\":\"Fuera de plazo\"}"))
+                .andExpect(status().isOk());
+
+        verify(entradaService).rechazarDevolucion(solicitudId, "Fuera de plazo");
+    }
+
+    @Test
     void validarQrPropagaIdentidadYRolDelValidador() throws Exception {
         ValidarQrResponse response = new ValidarQrResponse(
                 UUID.randomUUID(), "cliente-1", "evento-1", "Platea",

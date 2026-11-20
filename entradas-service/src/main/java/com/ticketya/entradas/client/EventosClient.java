@@ -62,4 +62,39 @@ public class EventosClient {
                 HttpStatus.SERVICE_UNAVAILABLE,
                 "eventos-service no responde; no se pudo verificar la fecha del evento"));
     }
+
+    /**
+     * Trae la capacidad declarada por sector, necesaria para el reporte de
+     * ocupación (R12.2). Un 404 se propaga como tal y una caída del servicio
+     * responde 503 para no reportar ocupaciones inventadas.
+     */
+    @CircuitBreaker(name = "eventService", fallbackMethod = "obtenerEventoFallback")
+    @Retry(name = "eventService")
+    @TimeLimiter(name = "eventService")
+    public CompletableFuture<EventoResumenDTO> obtenerEvento(String eventoId) {
+        return webClient.get()
+                .uri("/api/eventos/{id}", eventoId)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        Mono.error(new ResponseStatusException(
+                                HttpStatus.valueOf(response.statusCode().value()),
+                                "Evento no encontrado: " + eventoId)))
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        Mono.error(new RemoteServiceException(
+                                "eventos-service devolvió " + response.statusCode().value())))
+                .bodyToMono(EventoResumenDTO.class)
+                .toFuture();
+    }
+
+    private CompletableFuture<EventoResumenDTO> obtenerEventoFallback(String eventoId, Throwable error) {
+        Throwable causa = Futures.unwrap(error);
+        if (causa instanceof ResponseStatusException responseStatusException) {
+            return CompletableFuture.failedFuture(responseStatusException);
+        }
+
+        log.warn("Fallback eventService al consultar el evento {}: {}", eventoId, causa.toString());
+        return CompletableFuture.failedFuture(new ResponseStatusException(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "eventos-service no responde; no se pudo calcular la ocupación del evento"));
+    }
 }

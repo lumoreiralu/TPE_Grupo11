@@ -7,6 +7,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import ticketya.eventos_service.client.EntradasClient;
+import ticketya.eventos_service.messaging.DomainEvent;
+import ticketya.eventos_service.messaging.DomainEventPublisher;
 import ticketya.eventos_service.model.EstadoEvento;
 import ticketya.eventos_service.model.Evento;
 import ticketya.eventos_service.repository.EventoRepository;
@@ -40,6 +42,9 @@ class EventoControllerTest {
     @MockitoBean
     private EntradasClient entradasClient;
 
+    @MockitoBean
+    private DomainEventPublisher eventPublisher;
+
     @Test
     void rechazaPublicarEventoSinPreciosPorSector() throws Exception {
         Evento eventoSinPrecios = new Evento();
@@ -68,6 +73,7 @@ class EventoControllerTest {
                 .andExpect(status().isOk());
 
         verify(catalogoCacheService).invalidarCatalogo();
+        verify(eventPublisher).publish(any(DomainEvent.class));
     }
 
     @Test

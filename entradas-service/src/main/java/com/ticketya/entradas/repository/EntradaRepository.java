@@ -18,5 +18,7 @@ public interface EntradaRepository extends JpaRepository<Entrada, UUID> {
 
     List<Entrada> findByClienteId(String clienteId);
 
+    List<Entrada> findByEventoId(String eventoId);
+
     List<Entrada> findByEventoIdAndEstadoNot(String eventoId, EstadoEntrada estado);
 }

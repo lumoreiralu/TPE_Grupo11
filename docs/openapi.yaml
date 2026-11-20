@@ -455,6 +455,88 @@ paths:
           description: Token JWT inválido o ausente.
 
   # ==========================================
+  # METRICAS DE RECAUDACION Y OCUPACION (R12)
+  # ==========================================
+
+  /api/compras/metricas/{eventoId}/recaudacion:
+    get:
+      summary: Recaudación acumulada de un evento
+      description: |
+        Suma los montos de las órdenes del evento que tienen el pago aprobado
+        (`PAGO_CONFIRMADO` y `COMPLETADA`) y descuenta las órdenes
+        `COMPENSADA`/reembolsadas, para devolver el dinero neto recaudado.
+        Requiere rol `ROLE_ADMINISTRADOR` o `ROLE_ORGANIZADOR`.
+      tags:
+        - Métricas
+      x-roles:
+        - ROLE_ADMINISTRADOR
+        - ROLE_ORGANIZADOR
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventoId
+          in: path
+          required: true
+          description: Identificador del evento en el catálogo.
+          schema:
+            type: string
+          example: "evento-1"
+      responses:
+        "200":
+          description: Reporte de recaudación acumulada del evento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecaudacionResponse'
+        "400":
+          description: El identificador del evento es obligatorio.
+        "401":
+          description: Token JWT ausente o expirado.
+        "403":
+          description: Rol insuficiente. Se requiere ROLE_ADMINISTRADOR o ROLE_ORGANIZADOR.
+
+  /api/entradas/metricas/{eventoId}/ocupacion:
+    get:
+      summary: Ocupación por sector de un evento
+      description: |
+        Devuelve por cada sector la cantidad y el porcentaje de entradas vendidas
+        (`EMITIDA` y `USADA`), disponibles (capacidad del sector menos lo vendido)
+        y devueltas (`CANCELADA`). Un sector sin entradas informa 0 % de ocupación.
+        Requiere rol `ROLE_ADMINISTRADOR` o `ROLE_ORGANIZADOR`.
+      tags:
+        - Métricas
+      x-roles:
+        - ROLE_ADMINISTRADOR
+        - ROLE_ORGANIZADOR
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: eventoId
+          in: path
+          required: true
+          description: Identificador del evento en el catálogo.
+          schema:
+            type: string
+          example: "evento-1"
+      responses:
+        "200":
+          description: Reporte de ocupación con el desglose por sector y los totales del evento.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OcupacionResponse'
+        "400":
+          description: El identificador del evento es obligatorio.
+        "401":
+          description: Token JWT ausente o expirado.
+        "403":
+          description: Rol insuficiente. Se requiere ROLE_ADMINISTRADOR o ROLE_ORGANIZADOR.
+        "404":
+          description: El evento no existe en el catálogo.
+        "503":
+          description: eventos-service no responde; no se puede conocer la capacidad de los sectores.
+
+  # ==========================================
   # AUTENTICACION Y SEGURIDAD
   # ==========================================
 
@@ -524,6 +606,113 @@ components:
       properties:
         valido: { type: boolean }
         mensaje: { type: string }
+
+    RecaudacionResponse:
+      type: object
+      description: Recaudación acumulada de un evento (R12.1).
+      properties:
+        eventoId:
+          type: string
+          example: "evento-1"
+        recaudacionTotal:
+          type: number
+          format: double
+          description: Dinero neto recaudado (bruto menos reembolsos).
+          example: 8500.50
+        recaudacionBruta:
+          type: number
+          format: double
+          description: Suma de los montos de las órdenes con pago aprobado, incluidas las compensadas.
+          example: 9300.50
+        montoReembolsado:
+          type: number
+          format: double
+          description: Monto devuelto en órdenes compensadas/reembolsadas.
+          example: 800.00
+        ordenesConfirmadas:
+          type: integer
+          format: int64
+          description: Cantidad de órdenes con pago confirmado y venta vigente.
+          example: 3
+        ordenesCompensadas:
+          type: integer
+          format: int64
+          description: Cantidad de órdenes compensadas/reembolsadas del evento.
+          example: 1
+
+    OcupacionSector:
+      type: object
+      description: Ocupación de un sector del evento (R12.2).
+      properties:
+        sectorId:
+          type: string
+          nullable: true
+          description: Identificador del sector en el catálogo; nulo si el sector ya no está declarado.
+          example: "sector-platea"
+        sector:
+          type: string
+          description: Nombre del sector con el que se emitieron las entradas.
+          example: "Platea"
+        capacidad:
+          type: integer
+          nullable: true
+          description: Capacidad máxima declarada para el sector en eventos-service.
+          example: 100
+        vendidas:
+          type: integer
+          format: int64
+          description: Entradas EMITIDA y USADA del sector.
+          example: 3
+        disponibles:
+          type: integer
+          format: int64
+          description: Capacidad del sector menos las entradas vendidas (nunca negativo).
+          example: 97
+        devueltas:
+          type: integer
+          format: int64
+          description: Entradas CANCELADA del sector (devolución aprobada o evento cancelado).
+          example: 1
+        porcentajeOcupacion:
+          type: number
+          format: double
+          description: Porcentaje de ocupación del sector (0 a 100, dos decimales).
+          example: 3.00
+
+    OcupacionResponse:
+      type: object
+      description: Reporte de ocupación de un evento con el desglose por sector (R12.2).
+      properties:
+        eventoId:
+          type: string
+          example: "evento-1"
+        nombreEvento:
+          type: string
+          example: "Recital de prueba"
+        sectores:
+          type: array
+          items:
+            $ref: '#/components/schemas/OcupacionSector'
+        totalVendidas:
+          type: integer
+          format: int64
+          description: Suma de las entradas vendidas de todos los sectores.
+          example: 3
+        totalDisponibles:
+          type: integer
+          format: int64
+          description: Suma de los cupos disponibles de todos los sectores.
+          example: 117
+        totalDevueltas:
+          type: integer
+          format: int64
+          description: Suma de las entradas devueltas de todos los sectores.
+          example: 1
+        porcentajeOcupacionTotal:
+          type: number
+          format: double
+          description: Porcentaje de ocupación del evento sobre la capacidad declarada (0 a 100).
+          example: 2.50
 
   securitySchemes:
     bearerAuth:
