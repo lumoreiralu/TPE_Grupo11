@@ -28,6 +28,49 @@ public class AuthController {
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
+
+    @PostMapping("/register")
+    public Mono<ResponseEntity<String>> register(@RequestBody Usuario usuario) {
+
+        if (usuarioRepository.existsByUsername(usuario.getUsername())) {
+            return Mono.just(
+                ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body("El nombre de usuario ya está en uso")
+            );
+        }
+
+        if(usuario.getUsername() == null || usuario.getPassword() == null || usuario.getEmail() == null) {
+            return Mono.just(
+                ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Faltan datos requeridos")
+            );
+        }
+        if(usuario.getUsername().isEmpty() || usuario.getPassword().isEmpty() || usuario.getEmail().isEmpty()) {
+            return Mono.just(
+                ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Los campos no pueden estar vacíos")
+            );
+        }
+        if( !usuario.getEmail().contains("@")) {
+            return Mono.just(
+                ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("El email no es válido")
+            );
+        }
+        // Se registra automáticamente con el rol CLIENTE
+        usuarioRepository.registrarUsuario(
+            usuario.getUsername(),
+            usuario.getPassword(),
+            usuario.getEmail()
+        );
+
+        return Mono.just(
+            ResponseEntity.status(HttpStatus.CREATED)
+                .body("Usuario registrado exitosamente")
+        );
+    }
+
+
     @PostMapping ("/login")
     public Mono<ResponseEntity<AuthResponse>> login(@RequestBody LoginRequest loginRequest) {
         Optional<Usuario> usuarioOptional = usuarioRepository.findByUsername(loginRequest.getUsername());

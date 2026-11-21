@@ -41,4 +41,24 @@ public class UsuarioRepository {
     public PasswordEncoder getPasswordEncoder() {
         return passwordEncoder;
     }
+
+    public boolean existsByUsername(String username) {
+        return usuarios.containsKey(username.toLowerCase());
+    }
+
+    public Usuario registrarUsuario(String username, String password, String email) {
+        String passwordHash = passwordEncoder.encode(password);
+
+        Usuario usuario = new Usuario(
+            UUID.randomUUID(),
+            username,
+            passwordHash,
+            email,
+            Rol.ROLE_CLIENTE
+        );
+
+        usuarios.put(username.toLowerCase(), usuario);
+
+        return usuario;
+    }
 }
