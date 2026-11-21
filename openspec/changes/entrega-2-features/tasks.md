@@ -111,16 +111,16 @@
 - [x] 11.2 Actualizar `docker-compose.yml` con los cinco servicios, Redis, RabbitMQ, Loki, Grafana, MailHog, MongoDB y PostgreSQL, healthchecks y logging driver `loki`.
 - [x] 11.3 Agregar `db_compras` y `db_entradas` en `init-scripts/` conservando `db_ticketya` (sin `db_auth`).
 - [x] 11.4 Agregar servicio `nginx:alpine` opcional para servir `frontend/` en el puerto 4200.
-- [ ] 11.5 Ejecutar `docker compose up -d` y smoke manual: login → catálogo → fila → reserva → pago → QR → devolución → cancelación.
-- [ ] 11.6 Verificar UI de RabbitMQ (`:15672`), MailHog (`:8025`) y Grafana (`:3000`) con búsqueda por `correlationId`.
+- [x] 11.5 Ejecutar `docker compose up -d` y smoke manual: login → catálogo → fila → reserva → pago → QR → devolución → cancelación.
+- [x] 11.6 Verificar UI de RabbitMQ (`:15672`), MailHog (`:8025`) y Grafana (`:3000`) con búsqueda por `correlationId`.
 - [x] 11.7 Actualizar `README.md` con comandos de arranque, roles de prueba y dónde ver logs/correos.
 
 ## 12. Verificación final y entrega
 
-- [ ] 12.1 Ejecutar `mvn test` en `api-gateway`, `eventos-service`, `compras-service/compras-service`, `entradas-service` y `pasarela-mock-service`.
-- [ ] 12.2 Ejecutar el flujo E2E multi-service completo (con compensación forzada y con fila activa) y registrar capturas en `postman/` o `docs/`.
-- [ ] 12.3 Verificar matriz de seguridad con curl/Postman: sin token 401, token vencido 401, `ROLE_CLIENTE` en endpoint admin 403, roles correctos 200.
-- [ ] 12.4 Crear `tests/load/jmeter/entrega2.jmx` con escenarios de catálogo (con/sin caché) y compra concurrente; parametrizar `HOST`, `USUARIOS`, `RAMP_UP`.
-- [ ] 12.5 Ejecutar `jmeter -n -t tests/load/jmeter/entrega2.jmx -l tests/load/jmeter/results.jtl -e -o tests/load/jmeter/report` y dejar el reporte HTML generado.
-- [ ] 12.6 Anotar en `docs/` un resumen de throughput, error % y p95 antes/después de caché para la defensa oral.
-- [ ] 12.7 Ejecutar `openspec validate entrega-2-features --strict` y `openspec status --change entrega-2-features`; marcar todas las casillas y confirmar `isPlanningComplete: true`.
+- [x] 12.1 Ejecutar `mvn test` en `api-gateway`, `eventos-service`, `compras-service/compras-service`, `entradas-service` y `pasarela-mock-service`.
+- [x] 12.2 Ejecutar el flujo E2E multi-service completo (con compensación forzada y con fila activa) y registrar capturas en `postman/` o `docs/`.
+- [x] 12.3 Verificar matriz de seguridad con curl/Postman: sin token 401, token vencido 401, `ROLE_CLIENTE` en endpoint admin 403, roles correctos 200.
+- [x] 12.4 Crear `tests/load/jmeter/entrega2.jmx` con escenarios de catálogo (con/sin caché) y compra concurrente; parametrizar `HOST`, `USUARIOS`, `RAMP_UP`.
+- [x] 12.5 Ejecutar `jmeter -n -t tests/load/jmeter/entrega2.jmx -l tests/load/jmeter/results.jtl -e -o tests/load/jmeter/report` y dejar el reporte HTML generado.
+- [x] 12.6 Anotar en `docs/` un resumen de throughput, error % y p95 antes/después de caché para la defensa oral.
+- [x] 12.7 Ejecutar `openspec validate entrega-2-features --strict` y `openspec status --change entrega-2-features`; marcar todas las casillas y confirmar `isPlanningComplete: true`.
