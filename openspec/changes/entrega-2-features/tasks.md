@@ -54,7 +54,7 @@
 - [x] 4.7 Agregar `OrderReconciliationJob` cada 30 s para órdenes `PROCESANDO_PAGO` con más de 2 minutos; consultar estado real y converger.
 - [x] 4.8 Enviar `Idempotency-Key` en pago y emisión; almacenar resultado en Redis TTL 24 h y devolver el mismo resultado en reintentos.
 - [x] 4.9 Publicar `pago.aprobado`, `entrada.emitida` y `pago.compensado` desde la saga.
-- [ ] 4.10 **Tests:** emisión fallida reintegra y libera, orden pendiente converge, reintento con misma clave no duplica, circuit breaker usa fallback, `ReservaConcurrenteTest` y `CompraControllerTest` siguen pasando.
+- [x] 4.10 **Tests:** emisión fallida reintegra y libera, orden pendiente converge, reintento con misma clave no duplica, circuit breaker usa fallback, `ReservaConcurrenteTest` y `CompraControllerTest` siguen pasando.
 
 ## 5. Caché de catálogo con Redis
 
