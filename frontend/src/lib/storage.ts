@@ -2,6 +2,20 @@ import type { Entrada, EstadoOrden, ReservaItem } from '../types'
 
 const CLIENTE_KEY = 'ticketya.clienteId.v1'
 const ORDERS_KEY = 'ticketya.orders.v1'
+const TOKEN_KEY = 'ticketya_token'
+
+export function getAuthToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setAuthToken(token: string): string {
+  localStorage.setItem(TOKEN_KEY, token)
+  return token
+}
+
+export function clearAuthToken(): void {
+  localStorage.removeItem(TOKEN_KEY)
+}
 
 export interface SelectedSeat extends ReservaItem {
   sectorNombre: string

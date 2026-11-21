@@ -1,35 +1,47 @@
 import { useCallback, useEffect, useState } from 'react'
 import { CalendarDays, QrCode, ShieldCheck, Sparkles, Timer } from 'lucide-react'
 import { buscarEventos } from '../api/client'
+import { useApp } from '../context/AppContext'
 import type { BusquedaEventosParams, Evento } from '../types'
 import { SearchPanel } from '../components/SearchPanel'
 import { EventCard } from '../components/EventCard'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../components/Feedback'
 
 export function EventosPage() {
+  const { isAuthenticated } = useApp()
   const [filters, setFilters] = useState<BusquedaEventosParams>({})
   const [eventos, setEventos] = useState<Evento[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasSearched, setHasSearched] = useState(false)
 
-  const load = useCallback(async (params: BusquedaEventosParams) => {
-    setLoading(true)
-    setError(null)
-    setHasSearched(Object.values(params).some((value) => Boolean(value)))
-    try {
-      setEventos(await buscarEventos(params))
-    } catch (loadError) {
-      setEventos([])
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : 'No se pudieron cargar los eventos.',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (params: BusquedaEventosParams) => {
+      if (!isAuthenticated) {
+        setEventos([])
+        setError(null)
+        setLoading(false)
+        return
+      }
+
+      setLoading(true)
+      setError(null)
+      setHasSearched(Object.values(params).some((value) => Boolean(value)))
+      try {
+        setEventos(await buscarEventos(params))
+      } catch (loadError) {
+        setEventos([])
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'No se pudieron cargar los eventos.',
+        )
+      } finally {
+        setLoading(false)
+      }
+    },
+    [isAuthenticated],
+  )
 
   useEffect(() => {
     void load({})
@@ -95,21 +107,36 @@ export function EventosPage() {
             <h2>{hasSearched ? 'Resultados de búsqueda' : 'Próximos eventos'}</h2>
           </div>
           <p className="muted">
-            {loading
-              ? 'Buscando eventos…'
-              : `${eventos.length} evento${eventos.length === 1 ? '' : 's'} encontrado${
-                  eventos.length === 1 ? '' : 's'
-                }`}
+            {!isAuthenticated
+              ? 'Iniciá sesión para ver la cartelera'
+              : loading
+                ? 'Buscando eventos…'
+                : `${eventos.length} evento${eventos.length === 1 ? '' : 's'} encontrado${
+                    eventos.length === 1 ? '' : 's'
+                  }`}
           </p>
         </div>
 
-        {error ? <ErrorBlock message={error} onRetry={() => void load(filters)} /> : null}
-
-        {loading ? <LoadingBlock label="Cargando cartelera…" /> : null}
-
-        {!loading && !error && eventos.length === 0 ? (
+        {!isAuthenticated ? (
           <EmptyBlock
-            title={hasSearched ? 'No encontramos eventos con esos filtros' : 'Todavía no hay eventos publicados'}
+            title="Iniciá sesión para explorar los eventos"
+            description="Usá el botón «Iniciar sesión» arriba a la derecha para autenticarte y cargar la cartelera disponible."
+          />
+        ) : null}
+
+        {isAuthenticated && error ? (
+          <ErrorBlock message={error} onRetry={() => void load(filters)} />
+        ) : null}
+
+        {isAuthenticated && loading ? <LoadingBlock label="Cargando cartelera…" /> : null}
+
+        {isAuthenticated && !loading && !error && eventos.length === 0 ? (
+          <EmptyBlock
+            title={
+              hasSearched
+                ? 'No encontramos eventos con esos filtros'
+                : 'Todavía no hay eventos publicados'
+            }
             description={
               hasSearched
                 ? 'Probá con otro artista, ciudad o rango de fechas.'
@@ -125,7 +152,7 @@ export function EventosPage() {
           />
         ) : null}
 
-        {!loading && !error && eventos.length > 0 ? (
+        {isAuthenticated && !loading && !error && eventos.length > 0 ? (
           <div className="event-grid">
             {eventos.map((evento) => (
               <EventCard key={evento.id} evento={evento} />

@@ -9,7 +9,13 @@ import type {
   Lugar,
   ReservaRequest,
   ReservaResponse,
+  AuthResponse,
+  LoginRequest
 } from '../types'
+
+import{
+  getAuthToken,
+} from '../lib/storage'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
@@ -27,6 +33,10 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
+  const token = getAuthToken()
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
   if (!headers.has('Accept')) headers.set('Accept', 'application/json')
   if (init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
@@ -156,4 +166,31 @@ export function getEntradasPorOrden(ordenId: string): Promise<Entrada[]> {
 
 export function getEntradasPorCliente(clienteId: string): Promise<Entrada[]> {
   return request<Entrada[]>(`/api/entradas/cliente/${encodeURIComponent(clienteId)}`)
+}
+
+export async function iniciarSesion(credentials: LoginRequest): Promise<AuthResponse> {
+  const data = await request<Record<string, unknown>>('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  })
+
+  const token =
+    (typeof data.token === 'string' && data.token) ||
+    (typeof data.accessToken === 'string' && data.accessToken) ||
+    (typeof data.jwt === 'string' && data.jwt) ||
+    ''
+
+  if (!token) {
+    throw new ApiError(500, 'La respuesta de login no devolvió un token válido.', data)
+  }
+
+  return {
+    token,
+    username: typeof data.username === 'string' ? data.username : undefined,
+    roles: Array.isArray(data.roles)
+      ? data.roles.filter((r): r is string => typeof r === 'string')
+      : undefined,
+    tokenType: typeof data.tokenType === 'string' ? data.tokenType : undefined,
+    clienteId: typeof data.clienteId === 'string' ? data.clienteId : undefined,
+  }
 }

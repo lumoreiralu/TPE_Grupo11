@@ -139,3 +139,18 @@ export interface FilaValidarResponse {
   valido: boolean
   mensaje: string
 }
+
+export interface LoginRequest {
+  username: string 
+  password: string
+}
+
+export interface AuthResponse {
+  token: string
+  username?: string
+  roles?: string[]
+  tokenType?: string
+  clienteId?: string
+  nombre?: string
+  email?: string
+}

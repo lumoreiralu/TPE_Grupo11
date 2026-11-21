@@ -2,14 +2,22 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { Ticket, UserRound } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { ClientModal } from './ClientModal'
+import { LoginModal } from './LoginModal'
+
+
 
 const navClassName = ({ isActive }: { isActive: boolean }) =>
   isActive ? 'nav-link active' : 'nav-link'
 
 export function Layout() {
-  const { clienteId, changeClienteId } = useApp()
+
+  const { clienteId, username, roles, isAuthenticated, login, logout } = useApp()
+
   const [modalOpen, setModalOpen] = useState(false)
+  
+  const roleLabel = roles.includes('ROLE_ADMINISTRADOR')
+  ? 'Admin'
+  : roles[0]?.replace(/^ROLE_/, '') || 'Usuario'
 
   return (
     <div className="app-shell">
@@ -33,16 +41,18 @@ export function Layout() {
             </NavLink>
           </nav>
 
-          <button
-            type="button"
-            className="cliente-chip"
-            onClick={() => setModalOpen(true)}
-            title="Cambiar identidad de cliente"
-          >
-            <UserRound size={16} />
-            <span className="cliente-chip-label">Cliente</span>
-            <strong>{clienteId}</strong>
-          </button>
+    <button
+      type="button"
+      className="cliente-chip"
+      onClick={() => setModalOpen(true)}
+      title={isAuthenticated ? 'Ver sesión' : 'Iniciar sesión'}
+    >
+      <UserRound size={16} />
+      <span className="cliente-chip-label">
+        {isAuthenticated ? roleLabel : 'Invitado'}
+      </span>
+      <strong>{isAuthenticated ? (username || clienteId) : 'Iniciar sesión'}</strong>
+    </button>
         </div>
       </header>
 
@@ -66,11 +76,13 @@ export function Layout() {
         </div>
       </footer>
 
-      <ClientModal
+      <LoginModal
         open={modalOpen}
-        clienteId={clienteId}
+        isAuthenticated={isAuthenticated}
+        clienteId={username || clienteId}
         onClose={() => setModalOpen(false)}
-        onSave={changeClienteId}
+        onLoginSuccess={(auth) => login(auth)}
+        onLogout={logout}
       />
     </div>
   )
