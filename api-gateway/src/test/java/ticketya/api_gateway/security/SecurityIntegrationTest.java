@@ -86,6 +86,18 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void rolInsuficiente_noPuedeConsultarRecomendaciones() {
+        String tokenOrganizador = jwtTokenProvider.generarToken(
+                "organizador1", List.of("ROLE_ORGANIZADOR"));
+
+        webTestClient.get()
+                .uri("/api/eventos/recomendados")
+                .header("Authorization", "Bearer " + tokenOrganizador)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
     void rolSuficienteAdmin_noDevuelve403ParaCompensar() {
         // admin tiene ROLE_ADMINISTRADOR para /api/compras/*/compensar
         String tokenAdmin = jwtTokenProvider.generarToken("admin", List.of("ROLE_ADMINISTRADOR"));

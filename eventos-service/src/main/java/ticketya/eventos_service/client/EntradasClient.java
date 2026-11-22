@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import ticketya.eventos_service.util.Futures;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Component
@@ -44,6 +45,34 @@ public class EntradasClient {
                 .toBodilessEntity()
                 .then()
                 .toFuture();
+    }
+
+    @CircuitBreaker(name = "ticketService", fallbackMethod = "obtenerHistorialFallback")
+    @Retry(name = "ticketService")
+    @TimeLimiter(name = "ticketService")
+    public CompletableFuture<List<EntradaHistorialDTO>> obtenerEntradasPorCliente(String clienteId) {
+        return webClient.get()
+                .uri("/api/entradas/cliente/{clienteId}", clienteId)
+                .header("X-User-Id", clienteId)
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        Mono.error(new ResponseStatusException(
+                                HttpStatus.valueOf(response.statusCode().value()),
+                                "entradas-service rechazó la consulta de entradas de " + clienteId)))
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        Mono.error(new RemoteServiceException(
+                                "entradas-service devolvió " + response.statusCode().value())))
+                .bodyToFlux(EntradaHistorialDTO.class)
+                .collectList()
+                .toFuture();
+    }
+
+    private CompletableFuture<List<EntradaHistorialDTO>> obtenerHistorialFallback(
+            String clienteId, Throwable error) {
+        Throwable causa = Futures.unwrap(error);
+        log.warn("Fallback ticketService al consultar el historial de {}: {}",
+                clienteId, causa.toString());
+        return CompletableFuture.completedFuture(List.of());
     }
 
     /**

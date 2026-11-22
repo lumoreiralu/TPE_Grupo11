@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .pathMatchers("/api/compras/metricas/**").hasAnyAuthority("ROLE_ADMINISTRADOR", "ROLE_ORGANIZADOR")
                 .pathMatchers("/api/compras/*/compensar").hasAuthority("ROLE_ADMINISTRADOR")
                 .pathMatchers("/api/fila/**").hasAnyAuthority("ROLE_CLIENTE")
+                .pathMatchers("/api/eventos/preferencias", "/api/eventos/recomendados").hasAuthority("ROLE_CLIENTE")
 
                 //rutas de cliente y compra
                 .pathMatchers("/api/compras/**", "/api/entradas/cliente/**").hasAnyAuthority("ROLE_CLIENTE", "ROLE_ADMINISTRADOR")

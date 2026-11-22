@@ -9,13 +9,18 @@ import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ticketya.eventos_service.client.EntradasClient;
+import ticketya.eventos_service.dto.PreferenciasRequest;
+import ticketya.eventos_service.dto.RecomendacionResponse;
 import ticketya.eventos_service.messaging.DomainEvent;
 import ticketya.eventos_service.messaging.DomainEventPublisher;
 import ticketya.eventos_service.model.EstadoEvento;
 import ticketya.eventos_service.model.Evento;
+import ticketya.eventos_service.model.PreferenciasCliente;
 import ticketya.eventos_service.model.TipoEvento;
 import ticketya.eventos_service.repository.EventoRepository;
 import ticketya.eventos_service.service.CatalogoCacheService;
+import ticketya.eventos_service.service.PreferenciasService;
+import ticketya.eventos_service.service.RecomendacionService;
 import ticketya.eventos_service.util.Futures;
 
 import java.math.BigDecimal;
@@ -39,6 +44,12 @@ public class EventoController {
 
     @Autowired
     private DomainEventPublisher eventPublisher;
+
+    @Autowired
+    private PreferenciasService preferenciasService;
+
+    @Autowired
+    private RecomendacionService recomendacionService;
 
     @PostMapping
     public ResponseEntity<Evento> crearEvento(@RequestBody Evento evento) {
@@ -85,6 +96,39 @@ String ordenarPor) {
                 ordenarPor
         );
         return ResponseEntity.ok(resultado);
+    }
+
+    @GetMapping("/preferencias")
+    public ResponseEntity<PreferenciasCliente> obtenerPreferencias(
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestParam(required = false) String clienteId) {
+        return ResponseEntity.ok(preferenciasService.obtener(resolverClienteId(xUserId, clienteId)));
+    }
+
+    @PutMapping("/preferencias")
+    public ResponseEntity<PreferenciasCliente> guardarPreferencias(
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestParam(required = false) String clienteId,
+            @RequestBody PreferenciasRequest request) {
+        return ResponseEntity.ok(preferenciasService.guardar(
+                resolverClienteId(xUserId, clienteId), request));
+    }
+
+    @DeleteMapping("/preferencias")
+    public ResponseEntity<Void> eliminarPreferencias(
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestParam(required = false) String clienteId) {
+        preferenciasService.eliminar(resolverClienteId(xUserId, clienteId));
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/recomendados")
+    public ResponseEntity<List<RecomendacionResponse>> obtenerRecomendados(
+            @RequestHeader(value = "X-User-Id", required = false) String xUserId,
+            @RequestParam(required = false) String clienteId,
+            @RequestParam(required = false, defaultValue = "6") int limite) {
+        return ResponseEntity.ok(recomendacionService.recomendar(
+                resolverClienteId(xUserId, clienteId), limite));
     }
 
     @PutMapping("/{id}/publicar")
@@ -149,5 +193,13 @@ String ordenarPor) {
                 "detalle", "El evento fue cancelado y tus entradas serán reintegradas.")));
 
         return ResponseEntity.ok("Evento cancelado y proceso de reintegros disparado");
+    }
+
+    private String resolverClienteId(String xUserId, String clienteId) {
+        String resolved = xUserId != null && !xUserId.isBlank() ? xUserId : clienteId;
+        if (resolved == null || resolved.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta la identidad del cliente");
+        }
+        return resolved.trim();
     }
 }

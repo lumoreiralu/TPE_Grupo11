@@ -163,6 +163,158 @@ paths:
         "200":
           description: Listado de eventos que coinciden con los filtros.
 
+  /api/eventos/preferencias:
+    get:
+      summary: Consultar las preferencias del cliente autenticado
+      description: |
+        Devuelve los tipos de evento, artistas favoritos y ciudad preferida. Si el cliente
+        todavía no registró preferencias, devuelve una estructura vacía.
+      tags:
+        - Preferencias
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-User-Id
+          in: header
+          required: false
+          description: Identidad inyectada por el gateway desde el JWT. No debe enviarse manualmente.
+          schema:
+            type: string
+        - name: clienteId
+          in: query
+          required: false
+          description: Identidad alternativa para llamadas directas al microservicio.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Preferencias vigentes del cliente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenciasCliente'
+        "400":
+          description: No se pudo resolver la identidad del cliente.
+        "401":
+          description: Token JWT ausente o expirado.
+        "403":
+          description: Rol insuficiente. Se requiere ROLE_CLIENTE.
+
+    put:
+      summary: Registrar o actualizar las preferencias del cliente
+      tags:
+        - Preferencias
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-User-Id
+          in: header
+          required: false
+          description: Identidad inyectada por el gateway desde el JWT. No debe enviarse manualmente.
+          schema:
+            type: string
+        - name: clienteId
+          in: query
+          required: false
+          description: Identidad alternativa para llamadas directas al microservicio.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferenciasRequest'
+      responses:
+        "200":
+          description: Preferencias guardadas.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreferenciasCliente'
+        "400":
+          description: Datos inválidos o identidad faltante.
+        "401":
+          description: Token JWT ausente o expirado.
+        "403":
+          description: Rol insuficiente. Se requiere ROLE_CLIENTE.
+
+    delete:
+      summary: Borrar las preferencias del cliente
+      tags:
+        - Preferencias
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-User-Id
+          in: header
+          required: false
+          description: Identidad inyectada por el gateway desde el JWT. No debe enviarse manualmente.
+          schema:
+            type: string
+        - name: clienteId
+          in: query
+          required: false
+          description: Identidad alternativa para llamadas directas al microservicio.
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Preferencias eliminadas.
+        "400":
+          description: No se pudo resolver la identidad del cliente.
+        "401":
+          description: Token JWT ausente o expirado.
+        "403":
+          description: Rol insuficiente. Se requiere ROLE_CLIENTE.
+
+  /api/eventos/recomendados:
+    get:
+      summary: Sugerir eventos según preferencias e historial de compras
+      description: |
+        Combina las preferencias explícitas con los eventos comprados previamente por el cliente,
+        excluye esos eventos ya adquiridos y devuelve sugerencias ordenadas por afinidad.
+      tags:
+        - Preferencias
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: X-User-Id
+          in: header
+          required: false
+          description: Identidad inyectada por el gateway desde el JWT. No debe enviarse manualmente.
+          schema:
+            type: string
+        - name: clienteId
+          in: query
+          required: false
+          description: Identidad alternativa para llamadas directas al microservicio.
+          schema:
+            type: string
+        - name: limite
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 6
+            minimum: 1
+            maximum: 20
+      responses:
+        "200":
+          description: Listado de recomendaciones ordenadas por puntaje.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecomendacionResponse'
+        "400":
+          description: No se pudo resolver la identidad del cliente.
+        "401":
+          description: Token JWT ausente o expirado.
+        "403":
+          description: Rol insuficiente. Se requiere ROLE_CLIENTE.
+
   # ==========================================
   # COMPRAS Y RESERVAS (CONCURRENCIA)
   # ==========================================
@@ -713,6 +865,83 @@ components:
           format: double
           description: Porcentaje de ocupación del evento sobre la capacidad declarada (0 a 100).
           example: 2.50
+
+    PreferenciasRequest:
+      type: object
+      properties:
+        tiposEvento:
+          type: array
+          items:
+            type: string
+            enum:
+              - RECITAL
+              - TEATRO
+              - DEPORTE
+              - CONFERENCIA
+        artistasFavoritos:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 120
+            example: "Banda B"
+        ciudad:
+          type: string
+          nullable: true
+          maxLength: 120
+          example: "Rosario"
+
+    PreferenciasCliente:
+      type: object
+      properties:
+        clienteId:
+          type: string
+          example: "cliente1"
+        tiposEvento:
+          type: array
+          items:
+            type: string
+            enum:
+              - RECITAL
+              - TEATRO
+              - DEPORTE
+              - CONFERENCIA
+        artistasFavoritos:
+          type: array
+          items:
+            type: string
+        ciudad:
+          type: string
+          nullable: true
+        fechaActualizacion:
+          type: string
+          format: date-time
+
+    RecomendacionResponse:
+      type: object
+      properties:
+        evento:
+          type: object
+          properties:
+            id: { type: string }
+            nombre: { type: string }
+            descripcion: { type: string, nullable: true }
+            tipoEvento: { type: string, nullable: true }
+            participantes:
+              type: array
+              items: { type: string }
+            fechaHora: { type: string, format: date-time }
+            ciudad: { type: string, nullable: true }
+            preciosSectores:
+              type: array
+              items:
+                type: object
+        motivo:
+          type: string
+          example: "Artista favorito: Banda B · Tu ciudad"
+        puntaje:
+          type: integer
+          example: 18
 
   securitySchemes:
     bearerAuth:

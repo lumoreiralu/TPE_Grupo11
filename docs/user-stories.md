@@ -120,4 +120,21 @@
 - **R15.3:** **If** la entrada ya fue escaneada previamente (estado `USADA`), **then the system shall** rechazar el ingreso devolviendo un código HTTP `409 Conflict`. 
 - **R15.4:** **If** la entrada fue cancelada o anulada, **then the system shall** rechazar el ingreso devolviendo un código HTTP `400 Bad Request`.
 
+## Feature 10: Preferencias y Recomendaciones (RF-10)
+### US-16: Registro de preferencias del cliente
+**Como** Cliente,
+**Quiero** registrar mis tipos de evento favoritos, artistas preferidos y ciudad,
+**Para** recibir sugerencias alineadas con mis gustos.
+- **R16.1:** **When** un cliente guarda sus preferencias, **the system shall** persistirlas asociadas a su identidad autenticada.
+- **R16.2:** **When** un cliente consulta sus preferencias, **the system shall** devolver los valores vigentes o una estructura vacía si nunca las registró.
+- **R16.3:** **If** un cliente elimina sus preferencias, **then the system shall** dejar de usarlas para generar recomendaciones.
+
+### US-17: Sugerencias basadas en preferencias e historial
+**Como** Cliente,
+**Quiero** ver eventos sugeridos según mis preferencias y mis compras anteriores,
+**Para** descubrir próximos eventos que probablemente me interesen.
+- **R17.1:** **When** un cliente solicita recomendaciones, **the system shall** combinar sus preferencias explícitas con los tipos, artistas y ciudades de las entradas compradas previamente.
+- **R17.2:** **When** existen coincidencias, **the system shall** devolver solo eventos publicados, ordenados por afinidad y excluyendo los eventos ya comprados por el cliente.
+- **R17.3:** **If** no hay preferencias ni historial utilizable, **then the system shall** devolver una lista vacía sin fallar la consulta.
+
 

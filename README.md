@@ -7,6 +7,11 @@ El flujo principal permite buscar eventos publicados, elegir sector y asientos, 
 temporalmente las entradas, simular el pago, emitir tickets digitales con código QR y consultar
 las entradas por orden o por cliente.
 
+Un cliente autenticado también puede registrar sus tipos de evento favoritos, artistas preferidos y
+ciudad. Con esas preferencias y su historial de entradas, `eventos-service` genera recomendaciones
+de eventos publicados que aún no compró. La SPA expone ese flujo en la sección «Para vos» de la
+cartelera.
+
 ## Arquitectura
 
 ```text
@@ -27,7 +32,7 @@ api-gateway (:8080)
 | Servicio | Responsabilidad | Puerto | Persistencia |
 | --- | --- | --- | --- |
 | `api-gateway` | Punto de entrada único y ruteo | `8080` | — |
-| `eventos-service` | Lugares, sectores, eventos y búsqueda | `8081` | MongoDB `db_eventos` |
+| `eventos-service` | Lugares, sectores, eventos, búsqueda, preferencias y recomendaciones | `8081` | MongoDB `db_eventos` |
 | `compras-service` | Reservas, bloqueos, pagos y órdenes | `8082` | PostgreSQL `db_compras` |
 | `entradas-service` | Emisión de entradas y códigos QR | `8083` | PostgreSQL `db_entradas` |
 | `pasarela-mock-service` | Simulación de cobros y reembolsos | `8084` | — |
@@ -669,7 +674,7 @@ El acceso a los endpoints está restringido según el rol del usuario autenticad
 | Rol | Permisos y Operaciones Autorizadas | Endpoints Clave Protegidos |
 | --- | --- | --- |
 | `ROLE_ORGANIZADOR` | Registrar lugares, crear y publicar eventos, consultar reportes. | `POST /api/lugares`, `POST/PUT /api/eventos/**` |
-| `ROLE_CLIENTE` | Reservar entradas, confirmar pago y consultar sus tickets emitidos. | `POST /api/compras/**`, `GET /api/entradas/cliente/**` |
+| `ROLE_CLIENTE` | Reservar entradas, confirmar pago, consultar sus tickets y gestionar preferencias/recomendaciones. | `POST /api/compras/**`, `GET /api/entradas/cliente/**`, `/api/eventos/preferencias`, `/api/eventos/recomendados` |
 | `ROLE_PERSONAL_ACCESO` | Validar y registrar el ingreso con código QR en puerta. | `POST /api/entradas/validar-qr` |
 | `ROLE_ADMINISTRADOR` | Cancelar eventos y aprobar o rechazar devoluciones de entradas. | `PUT /api/eventos/{id}/cancelar`, `POST /api/entradas/devoluciones/**` |
 

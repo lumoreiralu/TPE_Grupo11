@@ -7,6 +7,9 @@ import type {
   FilaTurnoResponse,
   FilaValidarResponse,
   Lugar,
+  PreferenciasCliente,
+  PreferenciasRequest,
+  Recomendacion,
   ReservaRequest,
   ReservaResponse,
   AuthResponse,
@@ -94,6 +97,27 @@ function buildQuery(params: BusquedaEventosParams): string {
 
 export function buscarEventos(params: BusquedaEventosParams = {}): Promise<Evento[]> {
   return request<Evento[]>(`/api/eventos/buscar${buildQuery(params)}`)
+}
+
+export function getPreferencias(): Promise<PreferenciasCliente> {
+  return request<PreferenciasCliente>('/api/eventos/preferencias')
+}
+
+export function guardarPreferencias(
+  preferencias: PreferenciasRequest,
+): Promise<PreferenciasCliente> {
+  return request<PreferenciasCliente>('/api/eventos/preferencias', {
+    method: 'PUT',
+    body: JSON.stringify(preferencias),
+  })
+}
+
+export function eliminarPreferencias(): Promise<void> {
+  return request<void>('/api/eventos/preferencias', { method: 'DELETE' })
+}
+
+export function getRecomendaciones(limite = 6): Promise<Recomendacion[]> {
+  return request<Recomendacion[]>(`/api/eventos/recomendados?limite=${limite}`)
 }
 
 export function getEvento(id: string): Promise<Evento> {

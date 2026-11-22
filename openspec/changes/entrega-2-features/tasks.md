@@ -115,12 +115,22 @@
 - [x] 11.6 Verificar UI de RabbitMQ (`:15672`), MailHog (`:8025`) y Grafana (`:3000`) con búsqueda por `correlationId`.
 - [x] 11.7 Actualizar `README.md` con comandos de arranque, roles de prueba y dónde ver logs/correos.
 
-## 12. Verificación final y entrega
+## 12. Preferencias y recomendaciones (RF-10)
 
-- [x] 12.1 Ejecutar `mvn test` en `api-gateway`, `eventos-service`, `compras-service/compras-service`, `entradas-service` y `pasarela-mock-service`.
-- [x] 12.2 Ejecutar el flujo E2E multi-service completo (con compensación forzada y con fila activa) y registrar capturas en `postman/` o `docs/`.
-- [x] 12.3 Verificar matriz de seguridad con curl/Postman: sin token 401, token vencido 401, `ROLE_CLIENTE` en endpoint admin 403, roles correctos 200.
-- [x] 12.4 Crear `tests/load/jmeter/entrega2.jmx` con escenarios de catálogo (con/sin caché) y compra concurrente; parametrizar `HOST`, `USUARIOS`, `RAMP_UP`.
-- [x] 12.5 Ejecutar `jmeter -n -t tests/load/jmeter/entrega2.jmx -l tests/load/jmeter/results.jtl -e -o tests/load/jmeter/report` y dejar el reporte HTML generado.
-- [x] 12.6 Anotar en `docs/` un resumen de throughput, error % y p95 antes/después de caché para la defensa oral.
-- [x] 12.7 Ejecutar `openspec validate entrega-2-features --strict` y `openspec status --change entrega-2-features`; marcar todas las casillas y confirmar `isPlanningComplete: true`.
+- [x] 12.1 Agregar `PreferenciasCliente` y su repositorio en MongoDB dentro de `eventos-service`.
+- [x] 12.2 Exponer `GET/PUT/DELETE /api/eventos/preferencias` con identidad tomada de `X-User-Id`.
+- [x] 12.3 Exponer `GET /api/eventos/recomendados`, combinando preferencias explícitas con el historial de `entradas-service`.
+- [x] 12.4 Excluir de las sugerencias los eventos ya comprados y degradar sin fallar si el historial no responde.
+- [x] 12.5 Restringir las rutas nuevas a `ROLE_CLIENTE` en el gateway y documentarlas en OpenAPI.
+- [x] 12.6 Agregar panel de preferencias y sección «Para vos» en el frontend.
+- [x] 12.7 **Tests:** normalización de preferencias, scoring de recomendaciones, endpoints y RBAC.
+
+## 13. Verificación final y entrega
+
+- [x] 13.1 Ejecutar `mvn test` en `api-gateway`, `eventos-service`, `compras-service/compras-service`, `entradas-service` y `pasarela-mock-service`.
+- [x] 13.2 Ejecutar el flujo E2E multi-service completo (con compensación forzada y con fila activa) y registrar capturas en `postman/` o `docs/`.
+- [x] 13.3 Verificar matriz de seguridad con curl/Postman: sin token 401, token vencido 401, `ROLE_CLIENTE` en endpoint admin 403, roles correctos 200.
+- [x] 13.4 Crear `tests/load/jmeter/entrega2.jmx` con escenarios de catálogo (con/sin caché) y compra concurrente; parametrizar `HOST`, `USUARIOS`, `RAMP_UP`.
+- [x] 13.5 Ejecutar `jmeter -n -t tests/load/jmeter/entrega2.jmx -l tests/load/jmeter/results.jtl -e -o tests/load/jmeter/report` y dejar el reporte HTML generado.
+- [x] 13.6 Anotar en `docs/` un resumen de throughput, error % y p95 antes/después de caché para la defensa oral.
+- [x] 13.7 Ejecutar `openspec validate entrega-2-features --strict` y `openspec status --change entrega-2-features`; marcar todas las casillas y confirmar `isPlanningComplete: true`.

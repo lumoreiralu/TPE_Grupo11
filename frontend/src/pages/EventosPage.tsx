@@ -6,6 +6,7 @@ import type { BusquedaEventosParams, Evento } from '../types'
 import { SearchPanel } from '../components/SearchPanel'
 import { EventCard } from '../components/EventCard'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../components/Feedback'
+import { RecommendationsSection } from '../components/RecommendationsSection'
 
 export function EventosPage() {
   const { isAuthenticated } = useApp()
@@ -96,6 +97,8 @@ export function EventosPage() {
           </div>
         </div>
       </section>
+
+      <RecommendationsSection />
 
       <section className="container results-section">
         <div className="section-head">

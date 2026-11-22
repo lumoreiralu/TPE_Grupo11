@@ -115,6 +115,26 @@ export interface BusquedaEventosParams {
   organizadorId?: string
 }
 
+export interface PreferenciasCliente {
+  clienteId: string
+  tiposEvento: TipoEvento[]
+  artistasFavoritos: string[]
+  ciudad?: string | null
+  fechaActualizacion?: string
+}
+
+export interface PreferenciasRequest {
+  tiposEvento: TipoEvento[]
+  artistasFavoritos: string[]
+  ciudad?: string | null
+}
+
+export interface Recomendacion {
+  evento: Evento
+  motivo: string
+  puntaje: number
+}
+
 
 export interface FilaJoinResponse {
   eventoId: string

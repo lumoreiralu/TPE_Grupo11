@@ -15,7 +15,9 @@ en el [README raíz](../README.md).
 - Confirmar el pago contra la pasarela mock.
 - Ver las entradas emitidas con su código QR.
 - Buscar entradas por ID de orden.
-- Identidad de cliente simple (sin login), persistida en `localStorage`.
+- Iniciar sesión con JWT y conservar la identidad del cliente.
+- Registrar tipos de evento, artistas favoritos y ciudad preferida.
+- Ver recomendaciones basadas en esas preferencias y en el historial de compras.
 
 ## Requisitos
 
@@ -87,8 +89,8 @@ src/
 
 ## Notas y limitaciones actuales
 
-- **Sin autenticación**: el ID de cliente es la identidad. Se puede cambiar desde el botón
-  “Cliente” del encabezado.
+- **Identidad**: las recomendaciones y preferencias se asocian al usuario autenticado con JWT. El
+  ID de cliente local se usa para reservas y entradas cuando el backend no recibe un `X-User-Id`.
 - **Sectores de capacidad general**: el backend de compras todavía solo reserva asientos
   numerados. La UI muestra estos sectores como informativos.
 - **Pago simulado**: la pasarela mock no cobra dinero real.
