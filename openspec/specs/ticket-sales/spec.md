@@ -66,6 +66,10 @@ When un cliente selecciona asientos o lugares disponibles, the system SHALL gene
 - **WHEN** otro cliente intenta reservar el mismo asiento durante la reserva vigente
 - **THEN** el sistema rechaza la reserva e informa que el asiento no está disponible
 
+#### Scenario: Reserva sin pase de fila virtual
+- **WHEN** un evento en modo de alta demanda recibe una reserva de un cliente sin pase vigente
+- **THEN** el sistema deniega la reserva e indica que debe esperar su turno en la fila virtual
+
 ### Requirement: Liberación automática por vencimiento (R4.2)
 If transcurren 10 minutos sin confirmación de pago, then the system SHALL liberar automáticamente los lugares.
 
