@@ -20,6 +20,8 @@ import { getErrorMessage } from '../lib/errors'
 import { TicketCard } from '../components/TicketCard'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../components/Feedback'
 
+
+
 function mergeTickets(...groups: Entrada[][]): Entrada[] {
   const map = new Map<string, Entrada>()
   for (const group of groups) {
@@ -33,7 +35,9 @@ function mergeTickets(...groups: Entrada[][]): Entrada[] {
 }
 
 export function EntradasPage() {
-  const { clienteId } = useApp()
+
+  const { clienteId, username, isAuthenticated } = useApp()
+  const activeClienteId = username || clienteId
 
   const [tickets, setTickets] = useState<Entrada[]>([])
   const [events, setEvents] = useState<Record<string, Evento>>({})
@@ -96,15 +100,22 @@ export function EntradasPage() {
   }, [])
 
   const load = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-
     const localOrders = getOrders()
     setOrders(localOrders)
     const localTickets = localOrders.flatMap((order) => order.entradas ?? [])
 
+    if (!isAuthenticated) {
+      setTickets(mergeTickets(localTickets))
+      setError(null)
+      setLoading(false)
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+
     try {
-      const remoteTickets = await getEntradasPorCliente(clienteId)
+      const remoteTickets = await getEntradasPorCliente(activeClienteId)
       const merged = mergeTickets(remoteTickets, localTickets)
       setTickets(merged)
       await loadEvents(merged)
@@ -121,7 +132,7 @@ export function EntradasPage() {
     } finally {
       setLoading(false)
     }
-  }, [clienteId, loadEvents])
+  }, [activeClienteId, isAuthenticated, loadEvents])
 
   useEffect(() => {
     void load()
@@ -172,10 +183,16 @@ export function EntradasPage() {
             Mis entradas
           </span>
           <h1>Tus entradas</h1>
-          <p className="hero-lead">
-            Acá están las entradas emitidas para el cliente <strong>{clienteId}</strong>. Presentá
-            el código QR en el acceso del evento.
-          </p>
+            <p className="hero-lead">
+              {isAuthenticated ? (
+                <>
+                  Acá están las entradas emitidas para <strong>{activeClienteId}</strong>. Presentá
+                  el código QR en el acceso del evento.
+                </>
+              ) : (
+                'Iniciá sesión para ver las entradas asociadas a tu cuenta.'
+              )}
+            </p>
         </div>
 
         <div className="card tickets-toolbar">

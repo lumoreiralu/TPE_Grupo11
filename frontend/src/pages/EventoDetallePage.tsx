@@ -20,6 +20,7 @@ import { getEventMeta } from '../lib/eventMeta'
 import { SeatMap } from '../components/SeatMap'
 import { EmptyBlock, ErrorBlock, LoadingBlock } from '../components/Feedback'
 
+
 const MAX_ENTRADAS = (() => {
   const configured = Number(import.meta.env.VITE_MAX_ENTRADAS)
   return Number.isFinite(configured) && configured > 0 ? configured : 4
@@ -39,7 +40,9 @@ function errorMessage(error: unknown, fallback: string): string {
 export function EventoDetallePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { clienteId } = useApp()
+
+  const { clienteId, username, isAuthenticated } = useApp()
+  const activeClienteId = username || clienteId
 
   const [evento, setEvento] = useState<Evento | null>(null)
   const [lugar, setLugar] = useState<Lugar | null>(null)
@@ -127,7 +130,7 @@ export function EventoDetallePage() {
   const refrescarTurno = useCallback(async () => {
     if (!evento || !requiereFila) return
     try {
-      const turno = await consultarTurnoFila(evento.id, clienteId)
+      const turno = await consultarTurnoFila(evento.id, activeClienteId)
       setFilaEstado((prev) => ({
         eventoId: turno.eventoId,
         clienteId: turno.clienteId,
@@ -146,7 +149,7 @@ export function EventoDetallePage() {
     } catch (e) {
       setFilaError(errorMessage(e, 'No pudimos actualizar tu turno en la fila.'))
     }
-  }, [evento, requiereFila, clienteId])
+  }, [evento, requiereFila, activeClienteId])
 
   useEffect(() => {
     if (!requiereFila || !filaEstado || filaEstado.turnoActivo) return
@@ -157,18 +160,22 @@ export function EventoDetallePage() {
   }, [requiereFila, filaEstado, refrescarTurno])
 
   async function handleJoinQueue() {
-    if (!evento) return
-    setFilaCargando(true)
-    setFilaError(null)
-    try {
-      const resp = await unirseAFila(evento.id, clienteId)
-      setFilaEstado(resp)
-    } catch (e) {
-      setFilaError(errorMessage(e, 'No pudimos unirte a la fila virtual.'))
-    } finally {
-      setFilaCargando(false)
+      if (!evento) return
+      if (!isAuthenticated) {
+        setFilaError('Iniciá sesión antes de unirte a la fila virtual.')
+        return
+      }
+      setFilaCargando(true)
+      setFilaError(null)
+      try {
+        const resp = await unirseAFila(evento.id, activeClienteId)
+        setFilaEstado(resp)
+      } catch (e) {
+        setFilaError(errorMessage(e, 'No pudimos unirte a la fila virtual.'))
+      } finally {
+        setFilaCargando(false)
+      }
     }
-  }
 
   function seatKey(sectorId: string, fila: string, asiento: number): string {
     return `${sectorId}|${fila}|${asiento}`
@@ -220,8 +227,12 @@ export function EventoDetallePage() {
     idempotencyKeyRef.current = null
   }
 
-  async function handleReserve() {
+async function handleReserve() {
     if (!evento || selected.length === 0 || !canBuy) return
+    if (!isAuthenticated) {
+      setReserveError('Tenés que iniciar sesión para reservar asientos.')
+      return
+    }
 
     setReserving(true)
     setReserveError(null)
@@ -235,7 +246,7 @@ export function EventoDetallePage() {
         requiereFila && filaEstado?.turnoActivo ? filaEstado.paseId ?? undefined : undefined
       const response = await reservar(
         {
-          clienteId,
+          clienteId: activeClienteId,
           eventoId: evento.id,
           items: selected.map(({ sectorId, fila, asiento }) => ({
             sectorId,

@@ -1,5 +1,6 @@
 package ticketya.api_gateway.security;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
@@ -28,6 +29,7 @@ public class SecurityConfig {
                 //rutas publicas (login, openapi/swagger, health)
                 .pathMatchers("/api/auth/login", "/v3/api-docs/**", "/swagger-ui/**", "/webjars/**", "/actuator/**", "/fallback/**").permitAll()
                 .pathMatchers("/api/eventos/publicados/**").permitAll()
+                .pathMatchers(HttpMethod.GET, "/api/lugares/**").permitAll()
 
                 //matriz de accesos por rol
                 .pathMatchers("/api/lugares/**").hasAuthority("ROLE_ORGANIZADOR")

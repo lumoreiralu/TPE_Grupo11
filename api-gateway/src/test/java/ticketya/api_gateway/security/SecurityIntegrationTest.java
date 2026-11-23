@@ -64,6 +64,17 @@ class SecurityIntegrationTest {
     }
 
     @Test
+    void consultarLugarSinToken_noEsRechazadoPorAutorizacion() {
+        webTestClient.get()
+                .uri("/api/lugares/lugar-teatro")
+                .exchange()
+                .expectStatus()
+                .value(status -> org.assertj.core.api.Assertions.assertThat(status)
+                        .isNotEqualTo(401)
+                        .isNotEqualTo(403));
+    }
+
+    @Test
     void rolInsuficiente_devuelve403() {
         // cliente1 intenta acceder a ruta de ROLE_PERSONAL_ACCESO (/api/entradas/validar-qr)
         String tokenCliente = jwtTokenProvider.generarToken("cliente1", List.of("ROLE_CLIENTE"));
