@@ -632,12 +632,10 @@ Postman, seleccioná ese mismo cliente en la UI o consultá
 
 ## Limitaciones conocidas
 
-- No hay autenticación ni autorización: el `clienteId` es la identidad.
 - La reserva desde `compras-service` solo soporta asientos numerados. Los sectores de capacidad
   general se muestran en el catálogo, pero no se reservan desde la UI.
 - La pasarela es simulada; no se cobra dinero real.
-- La emisión de entradas es idempotente por `ordenCompraId`, pero no existe todavía un endpoint de
-  validación o check-in de QR.
+- La emisión de entradas es idempotente por `ordenCompraId`
 - No hay endpoints para cancelar una compra o solicitar reembolso desde el frontend. El reembolso
   solo se puede probar contra la pasarela mock.
 - El proyecto no incluye CORS habilitado para llamadas directas del navegador al gateway; en

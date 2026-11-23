@@ -6,7 +6,7 @@
 
 ## Contexto
 
-El equipo ya implementó `POST /api/auth/login`, `JwtTokenProvider`, `JwtAuthenticationFilter` y `SecurityConfig` en `api-gateway`, con usuarios precargados y roles `ROLE_CLIENTE`, `ROLE_ORGANIZADOR`, `ROLE_ADMINISTRADOR` y `ROLE_PERSONAL_ACCESO`. Agregar otro servicio de autenticación duplicaría el login y dejaría dos matrices de roles incompatibles.
+Se implementó `POST /api/auth/login`, `JwtTokenProvider`, `JwtAuthenticationFilter` y `SecurityConfig` en `api-gateway`, con usuarios precargados y roles `ROLE_CLIENTE`, `ROLE_ORGANIZADOR`, `ROLE_ADMINISTRADOR` y `ROLE_PERSONAL_ACCESO`. Agregar otro servicio de autenticación duplicaría el login y dejaría dos matrices de roles incompatibles.
 
 ## Decisión
 
