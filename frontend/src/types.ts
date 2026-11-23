@@ -174,3 +174,17 @@ export interface AuthResponse {
   nombre?: string
   email?: string
 }
+
+export interface CrearEventoRequest {
+  nombre: string
+  descripcion?: string
+  tipoEvento: TipoEvento
+  organizadorId: string
+  participantes?: string[]
+  fechaHora: string
+  lugarId: string
+  ciudad?: string
+  modoFila?: ModoFila
+  umbralConcurrencia?: number
+  preciosSectores: PrecioSector[]
+}

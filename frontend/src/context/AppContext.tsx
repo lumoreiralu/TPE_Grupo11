@@ -17,6 +17,7 @@ import {
 const USER_KEY = 'ticketya_user'
 const ROLES_KEY = 'ticketya_roles'
 
+
 function getStoredUser(): string | null {
   return localStorage.getItem(USER_KEY)
 }
@@ -45,6 +46,7 @@ interface AppContextValue {
   roles: string[]
   token: string | null
   isAuthenticated: boolean
+  isOrganizer: boolean
   changeClienteId: (value: string) => void
   login: (payload: LoginPayload | string, newClienteId?: string) => void
   logout: () => void
@@ -57,6 +59,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(() => getAuthToken())
   const [username, setUsernameState] = useState<string | null>(() => getStoredUser())
   const [roles, setRolesState] = useState<string[]>(() => getStoredRoles())
+
+  const isOrganizer = useMemo(
+  () =>
+    roles.some(
+      (r) => r === 'ROLE_ORGANIZADOR' || r === 'ROLE_ADMINISTRADOR',
+    ),
+  [roles],
+)
 
   const changeClienteId = useCallback((value: string) => {
     setClienteIdState(persistClienteId(value))
@@ -101,6 +111,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       roles,
       token,
       isAuthenticated: Boolean(token),
+      isOrganizer,
       changeClienteId,
       login,
       logout,

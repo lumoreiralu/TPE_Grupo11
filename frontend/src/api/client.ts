@@ -13,7 +13,9 @@ import type {
   ReservaRequest,
   ReservaResponse,
   AuthResponse,
-  LoginRequest
+  LoginRequest,
+  CrearEventoRequest,
+  PrecioSector
 } from '../types'
 
 import{
@@ -217,4 +219,26 @@ export async function iniciarSesion(credentials: LoginRequest): Promise<AuthResp
     tokenType: typeof data.tokenType === 'string' ? data.tokenType : undefined,
     clienteId: typeof data.clienteId === 'string' ? data.clienteId : undefined,
   }
+}
+
+
+export async function getLugares(): Promise<Lugar[]> {
+  return request<Lugar[]>('/api/lugares')
+}
+
+export async function crearEvento(payload: CrearEventoRequest): Promise<Evento> {
+  return request<Evento>('/api/eventos', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function publicarEvento(
+  id: string,
+  precios?: PrecioSector[],
+): Promise<Evento> {
+  return request<Evento>(`/api/eventos/${encodeURIComponent(id)}/publicar`, {
+    method: 'PUT',
+    body: JSON.stringify(precios ?? []),
+  })
 }

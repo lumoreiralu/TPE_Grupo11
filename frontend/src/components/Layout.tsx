@@ -11,7 +11,7 @@ const navClassName = ({ isActive }: { isActive: boolean }) =>
 
 export function Layout() {
 
-  const { clienteId, username, roles, isAuthenticated, login, logout } = useApp()
+  const { clienteId, username, roles, isAuthenticated, isOrganizer, login, logout } = useApp()
 
   const [modalOpen, setModalOpen] = useState(false)
   
@@ -39,6 +39,11 @@ export function Layout() {
             <NavLink to="/mis-entradas" className={navClassName}>
               Mis entradas
             </NavLink>
+            {isOrganizer ? (
+              <NavLink to="/eventos/nuevo" className="nav-link">
+                Crear evento
+              </NavLink>
+            ) : null}
           </nav>
 
     <button

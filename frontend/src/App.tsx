@@ -12,6 +12,7 @@ import { EventoDetallePage } from './pages/EventoDetallePage'
 import { CheckoutPage } from './pages/CheckoutPage'
 import { EntradasPage } from './pages/EntradasPage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { CrearEventoPage } from './pages/CrearEventoPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="checkout/:ordenId" element={<CheckoutPage />} />
             <Route path="mis-entradas" element={<EntradasPage />} />
             <Route path="*" element={<NotFoundPage />} />
+            <Route path="eventos/nuevo" element={<CrearEventoPage />} />
           </Route>
         </Routes>
       </AppProvider>
