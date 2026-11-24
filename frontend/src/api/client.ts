@@ -15,7 +15,8 @@ import type {
   AuthResponse,
   LoginRequest,
   CrearEventoRequest,
-  PrecioSector
+  PrecioSector,
+  CrearLugarRequest
 } from '../types'
 
 import{
@@ -224,6 +225,13 @@ export async function iniciarSesion(credentials: LoginRequest): Promise<AuthResp
 
 export async function getLugares(): Promise<Lugar[]> {
   return request<Lugar[]>('/api/lugares')
+}
+
+export async function crearLugar(payload: CrearLugarRequest): Promise<Lugar> {
+  return request<Lugar>('/api/lugares', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export async function crearEvento(payload: CrearEventoRequest): Promise<Evento> {

@@ -9,8 +9,11 @@ import ticketya.eventos_service.model.TipoSector;
 import ticketya.eventos_service.repository.LugarRepository;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/lugares")
@@ -28,6 +31,7 @@ public class LugarController {
         if (errorValidacion != null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("mensaje", errorValidacion));
         }
+        normalizarSectores(lugar.getSectores());
 
         Lugar nuevoLugar = lugarRepository.save(lugar);
         return new ResponseEntity<>(nuevoLugar, HttpStatus.CREATED);
@@ -67,13 +71,41 @@ public class LugarController {
     }
 
     private String validarSectores(List<Lugar.Sector> sectores) {
-        if (sectores != null) {
-            for (Lugar.Sector sector : sectores) {
-                String err = validarSector(sector);
-                if (err != null) return err;
+        if (sectores == null || sectores.isEmpty()) {
+            return "El lugar debe tener al menos un sector";
+        }
+        Set<String> ids = new HashSet<>();
+        for (Lugar.Sector sector : sectores) {
+            if (sector == null) {
+                return "Los sectores no pueden estar vacíos";
             }
+            if (sector.getNombre() == null || sector.getNombre().isBlank()) {
+                return "Cada sector debe tener un nombre";
+            }
+            if (sector.getSectorId() != null && !sector.getSectorId().isBlank()) {
+                String id = sector.getSectorId().trim();
+                if (!ids.add(id)) {
+                    return "Los identificadores de sector deben ser únicos";
+                }
+            }
+            String err = validarSector(sector);
+            if (err != null) return err;
         }
         return null;
+    }
+
+    private void normalizarSectores(List<Lugar.Sector> sectores) {
+        if (sectores == null) return;
+        for (Lugar.Sector sector : sectores) {
+            if (sector.getSectorId() == null || sector.getSectorId().isBlank()) {
+                sector.setSectorId(UUID.randomUUID().toString());
+            }
+            if (sector.getTipo() == TipoSector.NUMERADO) {
+                sector.setCapacidadMaxima(null);
+            } else {
+                sector.setFilas(null);
+            }
+        }
     }
 
     private String validarSector(Lugar.Sector sector) {
@@ -86,8 +118,20 @@ public class LugarController {
                 return "El sector numerado '" + sector.getNombre() + "' debe especificar filas y asientos";
             }
             for (Lugar.FilaSector fila : sector.getFilas()) {
+                if (fila == null) {
+                    return "Cada fila de un sector numerado debe tener nombre de fila y lista de asientos";
+                }
                 if (fila.getFila() == null || fila.getFila().isBlank() || fila.getAsientos() == null || fila.getAsientos().isEmpty()) {
                     return "Cada fila de un sector numerado debe tener nombre de fila y lista de asientos";
+                }
+                Set<Integer> asientos = new HashSet<>();
+                for (Integer asiento : fila.getAsientos()) {
+                    if (asiento == null || asiento <= 0) {
+                        return "Los asientos del sector numerado '" + sector.getNombre() + "' deben ser números mayores a cero";
+                    }
+                    if (!asientos.add(asiento)) {
+                        return "Los asientos de una fila deben ser únicos";
+                    }
                 }
             }
         }

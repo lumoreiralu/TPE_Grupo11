@@ -11,6 +11,8 @@ import ticketya.eventos_service.repository.LugarRepository;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 @WebMvcTest(LugarController.class)
 class LugarControllerTest {
@@ -64,6 +66,70 @@ class LugarControllerTest {
                         .content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensaje").value("El sector general 'Campo General' debe especificar una capacidad máxima permitida mayor a cero"));
+    }
+
+    @Test
+    void rechazaSectoresConIdsDuplicados() throws Exception {
+        String json = """
+                {
+                  "nombre": "Estadio Central",
+                  "sectores": [
+                    {
+                      "sectorId": "campo",
+                      "nombre": "Campo",
+                      "tipo": "CAPACIDAD_GENERAL",
+                      "capacidadMaxima": 500
+                    },
+                    {
+                      "sectorId": "campo",
+                      "nombre": "Otra ubicación",
+                      "tipo": "CAPACIDAD_GENERAL",
+                      "capacidadMaxima": 100
+                    }
+                  ]
+                }
+                """;
+
+        mockMvc.perform(post("/api/lugares")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.mensaje").value("Los identificadores de sector deben ser únicos"));
+    }
+
+    @Test
+    void creaLugarConSectorNumeradoYGeneral() throws Exception {
+        String json = """
+                {
+                  "nombre": "Complejo Central",
+                  "ciudad": "Tandil",
+                  "sectores": [
+                    {
+                      "sectorId": "platea",
+                      "nombre": "Platea",
+                      "tipo": "NUMERADO",
+                      "filas": [
+                {"fila": "A", "asientos": [1, 2, 3]}
+                      ]
+                    },
+                    {
+                      "sectorId": "campo",
+                      "nombre": "Campo",
+                      "tipo": "CAPACIDAD_GENERAL",
+                      "capacidadMaxima": 500
+                    }
+                  ]
+                }
+                """;
+
+        when(lugarRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        mockMvc.perform(post("/api/lugares")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nombre").value("Complejo Central"))
+                .andExpect(jsonPath("$.sectores.length()").value(2));
     }
 }
 

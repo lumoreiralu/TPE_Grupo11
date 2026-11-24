@@ -62,6 +62,25 @@ export interface Lugar {
   sectores?: Sector[]
 }
 
+export interface CrearSectorRequest {
+  sectorId?: string
+  nombre: string
+  tipo: TipoSector
+  capacidadMaxima?: number
+  filas?: FilaSector[]
+}
+
+export interface CrearLugarRequest {
+  nombre: string
+  direccion?: string
+  ciudad?: string
+  ubicacion?: {
+    latitud: number
+    longitud: number
+  }
+  sectores: CrearSectorRequest[]
+}
+
 export interface ReservaItem {
   sectorId: string
   fila: string

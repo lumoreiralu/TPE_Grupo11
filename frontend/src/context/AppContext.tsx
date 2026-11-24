@@ -47,6 +47,7 @@ interface AppContextValue {
   token: string | null
   isAuthenticated: boolean
   isOrganizer: boolean
+  isAdmin: boolean
   changeClienteId: (value: string) => void
   login: (payload: LoginPayload | string, newClienteId?: string) => void
   logout: () => void
@@ -67,6 +68,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ),
   [roles],
 )
+  const isAdmin = useMemo(
+    () => roles.includes('ROLE_ADMINISTRADOR'),
+    [roles],
+  )
 
   const changeClienteId = useCallback((value: string) => {
     setClienteIdState(persistClienteId(value))
@@ -112,6 +117,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       token,
       isAuthenticated: Boolean(token),
       isOrganizer,
+      isAdmin,
       changeClienteId,
       login,
       logout,

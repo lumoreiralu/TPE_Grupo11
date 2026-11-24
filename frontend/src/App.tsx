@@ -13,6 +13,7 @@ import { CheckoutPage } from './pages/CheckoutPage'
 import { EntradasPage } from './pages/EntradasPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { CrearEventoPage } from './pages/CrearEventoPage'
+import { CrearLugarPage } from './pages/CrearLugarPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="mis-entradas" element={<EntradasPage />} />
             <Route path="*" element={<NotFoundPage />} />
             <Route path="eventos/nuevo" element={<CrearEventoPage />} />
+            <Route path="lugares/nuevo" element={<CrearLugarPage />} />
           </Route>
         </Routes>
       </AppProvider>
